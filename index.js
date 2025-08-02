@@ -15,7 +15,7 @@ const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 async function fetchItemsFromAPI() {
   try {
     console.log('🔄 Cargando ítems desde GitHub...');
-    const response = await axios.get('https://raw.githubusercontent.com/AoData/ao-bin-dumps/main/items.json');
+    const response = await axios.get('https://cdn.jsdelivr.net/gh/mildrar/albion-items-dump@main/items.json');
     const rawItems = response.data;
 
     console.log(`📦 Ítems crudos obtenidos: ${rawItems.length}`);
