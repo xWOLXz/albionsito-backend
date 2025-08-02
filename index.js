@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -12,78 +13,82 @@ const nombresAPI = 'https://raw.githubusercontent.com/marcelo-mason/albion-data-
 
 app.get('/items', async (req, res) => {
   try {
-    const itemsRaw = await axios.get(nombresAPI);
-    const nombres = itemsRaw.data['es'];
+    const nombresResponse = await axios.get(nombresAPI);
+    const nombres = nombresResponse.data['es'];
 
-    const tipos = [
-      'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8'
-    ];
+    const tiers = ['T4', 'T5', 'T6', 'T7', 'T8'];
     const encantamientos = ['', '@1', '@2', '@3', '@4'];
+    const itemsFiltrados = [];
 
-    const itemsID = [];
-
-    for (const tier of tipos) {
-      for (const nombre in nombres) {
-        if (nombre.startsWith(tier + '_') && !nombre.includes('JOURNAL') && !nombre.includes('QUESTITEM')) {
-          for (const enc of encantamientos) {
-            itemsID.push(nombre + enc);
-          }
-        }
+    for (const clave in nombres) {
+      if (
+        tiers.some(t => clave.startsWith(t)) &&
+        !clave.includes('JOURNAL') &&
+        !clave.includes('QUESTITEM') &&
+        !clave.includes('SKIN') &&
+        !clave.includes('TOKEN') &&
+        !clave.includes('AVATAR')
+      ) {
+        encantamientos.forEach(enc => itemsFiltrados.push(clave + enc));
       }
-    }
-
-    const bloques = [];
-    for (let i = 0; i < itemsID.length; i += 100) {
-      bloques.push(itemsID.slice(i, i + 100));
     }
 
     const resultados = [];
 
-    for (const bloque of bloques) {
-      const response = await axios.get(`${apiAlbion}/${bloque.join(',')}?locations=${ciudades.join(',')}`);
-      const datos = response.data;
+    for (let i = 0; i < itemsFiltrados.length; i += 50) {
+      const bloque = itemsFiltrados.slice(i, i + 50);
+      const url = `${apiAlbion}/${bloque.join(',')}?locations=${ciudades.join(',')}`;
 
-      const porItem = {};
+      try {
+        const response = await axios.get(url);
+        const datos = response.data;
 
-      for (const item of datos) {
-        if (!item.sell_price_min || !item.buy_price_max) continue;
+        const porItem = {};
 
-        const { item_id, city, sell_price_min, buy_price_max } = item;
+        for (const item of datos) {
+          if (!item.sell_price_min || !item.buy_price_max) continue;
 
-        if (!porItem[item_id]) {
-          porItem[item_id] = {
-            item_id,
-            nombre: nombres[item_id] || item_id,
-            icono: `https://render.albiononline.com/v1/item/${item_id}.png`,
-            venta: sell_price_min,
-            compra: buy_price_max,
-            ciudad_venta: city,
-            ciudad_compra: city
-          };
-        } else {
-          if (sell_price_min > porItem[item_id].venta) {
-            porItem[item_id].venta = sell_price_min;
-            porItem[item_id].ciudad_venta = city;
-          }
-          if (buy_price_max < porItem[item_id].compra) {
-            porItem[item_id].compra = buy_price_max;
-            porItem[item_id].ciudad_compra = city;
+          const { item_id, city, sell_price_min, buy_price_max } = item;
+
+          if (!porItem[item_id]) {
+            porItem[item_id] = {
+              item_id,
+              nombre: nombres[item_id] || item_id,
+              icono: `https://render.albiononline.com/v1/item/${item_id}.png`,
+              venta: sell_price_min,
+              compra: buy_price_max,
+              ciudad_venta: city,
+              ciudad_compra: city,
+            };
+          } else {
+            if (sell_price_min > porItem[item_id].venta) {
+              porItem[item_id].venta = sell_price_min;
+              porItem[item_id].ciudad_venta = city;
+            }
+            if (buy_price_max < porItem[item_id].compra) {
+              porItem[item_id].compra = buy_price_max;
+              porItem[item_id].ciudad_compra = city;
+            }
           }
         }
-      }
 
-      for (const item of Object.values(porItem)) {
-        item.ganancia = item.venta - item.compra;
-        if (item.ganancia > 0) resultados.push(item);
+        for (const item of Object.values(porItem)) {
+          item.ganancia = item.venta - item.compra;
+          if (item.ganancia > 0) {
+            resultados.push(item);
+          }
+        }
+
+      } catch (error) {
+        console.error(`Error al procesar bloque ${i}:`, error.message);
       }
     }
 
     resultados.sort((a, b) => b.ganancia - a.ganancia);
-    res.json(resultados.slice(0, 1000)); // máximo 1000 ítems para no sobrecargar
-
+    res.json(resultados.slice(0, 1000));
   } catch (error) {
-    console.error('Error:', error.message);
-    res.status(500).json({ error: 'No se pudo obtener los ítems' });
+    console.error('Error general:', error.message);
+    res.status(500).json({ error: 'Error en el servidor' });
   }
 });
 
