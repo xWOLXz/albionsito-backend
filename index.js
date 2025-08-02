@@ -55,6 +55,7 @@ fetchItemsFromAPI().then(() => {
     console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   });
 });
+
 // Ejecutar la descarga de ítems apenas arranca el servidor
 fetchItemsFromAPI();
 
