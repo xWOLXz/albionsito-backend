@@ -16,11 +16,9 @@ const ITEMS_URL = 'https://cdn.jsdelivr.net/gh/mildrar/albion-items-dump@main/it
 
 async function fetchItemsFromAPI() {
   try {
-    console.log('🔄 Cargando ítems desde GitHub...');
-    const response = await axios.get(ITEMS_URL);
+    console.log('🔄 Obteniendo items desde GitHub...');
+    const response = await axios.get('https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json');
     const rawItems = response.data;
-
-    console.log(`📦 Ítems crudos obtenidos: ${rawItems.length}`);
 
     const filteredItems = rawItems.filter(item =>
       item.UniqueName &&
@@ -33,12 +31,10 @@ async function fetchItemsFromAPI() {
       !item.UniqueName.includes("BLACKMARKET")
     );
 
-    console.log(`✅ Ítems comerciales filtrados: ${filteredItems.length}`);
-
     cacheItems = filteredItems;
-    lastFetchTime = Date.now();
+    console.log(`✅ Ítems comerciales cargados: ${cacheItems.length}`);
   } catch (error) {
-    console.error('❌ Error al obtener los ítems desde GitHub:', error.message);
+    console.error('❌ Error al obtener los ítems:', error.message);
   }
 }
 
