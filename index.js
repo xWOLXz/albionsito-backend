@@ -16,82 +16,70 @@ app.get('/items', async (req, res) => {
     const nombresResponse = await axios.get(nombresAPI);
     const nombres = nombresResponse.data['es'];
 
-    const tiers = ['T4', 'T5', 'T6', 'T7', 'T8'];
-    const encantamientos = ['', '@1', '@2', '@3', '@4'];
-    const itemsFiltrados = [];
+    const encantamientos = ['']; // solo sin encantamiento
+    const itemsT4 = [];
 
     for (const clave in nombres) {
       if (
-        tiers.some(t => clave.startsWith(t)) &&
+        clave.startsWith('T4') &&
         !clave.includes('JOURNAL') &&
         !clave.includes('QUESTITEM') &&
         !clave.includes('SKIN') &&
         !clave.includes('TOKEN') &&
         !clave.includes('AVATAR')
       ) {
-        encantamientos.forEach(enc => itemsFiltrados.push(clave + enc));
+        encantamientos.forEach(enc => itemsT4.push(clave + enc));
       }
     }
 
-    const resultados = [];
+    const url = `${apiAlbion}/${itemsT4.join(',')}?locations=${ciudades.join(',')}`;
+    const response = await axios.get(url);
+    const datos = response.data;
 
-    for (let i = 0; i < itemsFiltrados.length; i += 50) {
-      const bloque = itemsFiltrados.slice(i, i + 50);
-      const url = `${apiAlbion}/${bloque.join(',')}?locations=${ciudades.join(',')}`;
+    const porItem = {};
 
-      try {
-        const response = await axios.get(url);
-        const datos = response.data;
+    for (const item of datos) {
+      if (!item.sell_price_min || !item.buy_price_max) continue;
 
-        const porItem = {};
+      const { item_id, city, sell_price_min, buy_price_max } = item;
 
-        for (const item of datos) {
-          if (!item.sell_price_min || !item.buy_price_max) continue;
-
-          const { item_id, city, sell_price_min, buy_price_max } = item;
-
-          if (!porItem[item_id]) {
-            porItem[item_id] = {
-              item_id,
-              nombre: nombres[item_id] || item_id,
-              icono: `https://render.albiononline.com/v1/item/${item_id}.png`,
-              venta: sell_price_min,
-              compra: buy_price_max,
-              ciudad_venta: city,
-              ciudad_compra: city,
-            };
-          } else {
-            if (sell_price_min > porItem[item_id].venta) {
-              porItem[item_id].venta = sell_price_min;
-              porItem[item_id].ciudad_venta = city;
-            }
-            if (buy_price_max < porItem[item_id].compra) {
-              porItem[item_id].compra = buy_price_max;
-              porItem[item_id].ciudad_compra = city;
-            }
-          }
+      if (!porItem[item_id]) {
+        porItem[item_id] = {
+          item_id,
+          nombre: nombres[item_id] || item_id,
+          icono: `https://render.albiononline.com/v1/item/${item_id}.png`,
+          venta: sell_price_min,
+          compra: buy_price_max,
+          ciudad_venta: city,
+          ciudad_compra: city,
+        };
+      } else {
+        if (sell_price_min > porItem[item_id].venta) {
+          porItem[item_id].venta = sell_price_min;
+          porItem[item_id].ciudad_venta = city;
         }
-
-        for (const item of Object.values(porItem)) {
-          item.ganancia = item.venta - item.compra;
-          if (item.ganancia > 0) {
-            resultados.push(item);
-          }
+        if (buy_price_max < porItem[item_id].compra) {
+          porItem[item_id].compra = buy_price_max;
+          porItem[item_id].ciudad_compra = city;
         }
-
-      } catch (error) {
-        console.error(`Error al procesar bloque ${i}:`, error.message);
       }
     }
 
-    resultados.sort((a, b) => b.ganancia - a.ganancia);
-    res.json(resultados.slice(0, 1000));
+    const resultados = Object.values(porItem)
+      .map(item => ({
+        ...item,
+        ganancia: item.venta - item.compra,
+      }))
+      .filter(item => item.ganancia > 0)
+      .sort((a, b) => b.ganancia - a.ganancia);
+
+    res.json(resultados.slice(0, 100));
   } catch (error) {
-    console.error('Error general:', error.message);
-    res.status(500).json({ error: 'Error en el servidor' });
+    console.error('💥 Error en el servidor:', error.message);
+    res.status(500).json({ error: 'Error en el servidor al procesar los datos' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log(`✅ Servidor corriendo en puerto ${PORT}`);
 });
