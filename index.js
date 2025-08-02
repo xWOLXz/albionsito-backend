@@ -15,12 +15,11 @@ const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 async function fetchItemsFromAPI() {
   try {
     console.log('🔄 Cargando ítems desde GitHub...');
-    const response = await axios.get('https://raw.githubusercontent.com/mildrar/albion-data/main/items.json');
+    const response = await axios.get('https://raw.githubusercontent.com/AoData/ao-bin-dumps/main/items.json');
     const rawItems = response.data;
 
     console.log(`📦 Ítems crudos obtenidos: ${rawItems.length}`);
 
-    // Solo dejamos ítems comerciales válidos
     const filteredItems = rawItems.filter(item =>
       item.UniqueName &&
       item.LocalizedNames &&
@@ -37,7 +36,7 @@ async function fetchItemsFromAPI() {
     cacheItems = filteredItems;
     lastFetchTime = Date.now();
   } catch (error) {
-    console.error('❌ Error al obtener los ítems:', error.message);
+    console.error('❌ Error al obtener los ítems desde GitHub:', error.message);
   }
 }
 
