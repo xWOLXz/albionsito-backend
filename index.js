@@ -10,7 +10,7 @@ app.use(cors());
 let cacheItems = [];
 const ITEMS_PER_PAGE = 30;
 
-// Carga inicial de ítems desde GitHub
+// ✅ Función que carga los ítems antes de iniciar el servidor
 async function fetchItemsFromAPI() {
   try {
     const response = await axios.get('https://raw.githubusercontent.com/mildrar/albion-data/main/items.json');
@@ -34,8 +34,7 @@ async function fetchItemsFromAPI() {
   }
 }
 
-// Endpoint paginado
-app.get('/items', async (req, res) => {
+app.get('/items', (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const total = cacheItems.length;
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -50,8 +49,9 @@ app.get('/items', async (req, res) => {
   });
 });
 
-// Inicia el servidor
-app.listen(PORT, async () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  await fetchItemsFromAPI(); // Cargar ítems al arrancar
+// ✅ Carga ítems antes de iniciar el servidor
+fetchItemsFromAPI().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
+  });
 });
