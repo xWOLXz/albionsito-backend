@@ -7,28 +7,35 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 
+// Estado para la conexión
+app.get('/status', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
+// Cache de ítems
 let cachedItems = [];
 let lastItemFetch = 0;
 const ITEM_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
-let lastPrices = {}; // cache por itemId
-let lastPriceFetch = {}; // timestamps por itemId
+// Cache de precios por itemId
+let lastPrices = {};
+let lastPriceFetch = {};
 
-// 🔄 Obtener y filtrar ítems válidos de la API
 const fetchItemsFromAlbion = async () => {
   try {
-    const response = await axios.get('https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json');
+    const response = await axios.get(
+      'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
+    );
     const data = response.data;
     const filtered = data.filter(item =>
-      item.LocalizedNames &&
-      item.LocalizedNames['ES-ES'] &&
+      item.LocalizedNames?.['ES-ES'] &&
       item.UniqueName &&
-      !item.UniqueName.includes("QUEST") &&
-      !item.UniqueName.includes("JOURNAL") &&
-      !item.UniqueName.includes("TROPHY") &&
-      !item.UniqueName.includes("SKIN") &&
-      !item.UniqueName.includes("BLACKMARKET") &&
-      !item.UniqueName.includes("TEST")
+      !item.UniqueName.includes('QUEST') &&
+      !item.UniqueName.includes('JOURNAL') &&
+      !item.UniqueName.includes('TROPHY') &&
+      !item.UniqueName.includes('SKIN') &&
+      !item.UniqueName.includes('TEST') &&
+      !item.UniqueName.includes('BLACKMARKET')
     );
     cachedItems = filtered;
     lastItemFetch = Date.now();
@@ -38,12 +45,6 @@ const fetchItemsFromAlbion = async () => {
   }
 };
 
-// ✅ Ruta de estado del backend
-app.get('/status', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
-// ✅ Ruta GET /items?page=1 con paginación
 app.get('/items', async (req, res) => {
   if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
     await fetchItemsFromAlbion();
@@ -62,12 +63,9 @@ app.get('/items', async (req, res) => {
   });
 });
 
-// ✅ Ruta GET /precios?itemId=T4_BAG para obtener los mejores precios
 app.get('/precios', async (req, res) => {
   const itemId = req.query.itemId;
-  if (!itemId) {
-    return res.status(400).json({ error: 'Falta itemId' });
-  }
+  if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
 
   const now = Date.now();
   const cacheValid = lastPrices[itemId] && (now - lastPriceFetch[itemId] < 5 * 60 * 1000);
@@ -77,7 +75,7 @@ app.get('/precios', async (req, res) => {
   }
 
   try {
-    const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien", "BlackMarket"];
+    const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien"];
     const qualities = 1;
 
     const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${cities.join(',')}&qualities=${qualities}`;
@@ -94,7 +92,7 @@ app.get('/precios', async (req, res) => {
       itemId,
       sell: bestSell ? { price: bestSell.sell_price_min, city: bestSell.city } : { price: 0, city: null },
       buy: bestBuy ? { price: bestBuy.buy_price_max, city: bestBuy.city } : { price: 0, city: null },
-      margen: (bestSell && bestBuy) ? (bestBuy.buy_price_max - bestSell.sell_price_min) : 0
+      margen: (bestSell && bestBuy) ? bestBuy.buy_price_max - bestSell.sell_price_min : 0
     };
 
     lastPrices[itemId] = result;
@@ -107,7 +105,6 @@ app.get('/precios', async (req, res) => {
   }
 });
 
-// 🚀 Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Backend corriendo en puerto ${PORT}`);
 });
