@@ -12,6 +12,10 @@ app.get('/items', async (req, res) => {
     const response = await fetch('https://raw.githubusercontent.com/mrzealot/ao-bin-dumps/master/items.json');
     const data = await response.json();
 
+    if (!Array.isArray(data)) {
+      return res.status(500).json({ error: 'Formato inesperado en items.json' });
+    }
+
     const filtered = data.filter(item =>
       item.LocalizedNames &&
       item.LocalizedNames['ES-ES'] &&
