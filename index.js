@@ -37,6 +37,11 @@ const fetchItemsFromAlbion = async () => {
   }
 };
 
+// ✅ Ruta de estado del backend
+app.get('/status', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
 // Ruta GET /items?page=1
 app.get('/items', async (req, res) => {
   if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
@@ -56,7 +61,7 @@ app.get('/items', async (req, res) => {
   });
 });
 
-// ✅ NUEVA RUTA: GET /precios?itemId=T4_BAG
+// Ruta GET /precios?itemId=T4_BAG
 app.get('/precios', async (req, res) => {
   const itemId = req.query.itemId;
   if (!itemId) {
