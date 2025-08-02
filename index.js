@@ -9,26 +9,30 @@ app.use(cors());
 
 let cacheItems = [];
 let lastFetchTime = 0;
-const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
+const CACHE_DURATION = 15 * 60 * 1000;
 
 const fetchItemsFromAPI = async () => {
   try {
     const response = await axios.get('https://cdn.albiononline2d.com/data/latest/items.json');
-    cacheItems = response.data.filter(item =>
-      item.LocalizedNames?.['ES-ES'] &&
+    const rawItems = response.data;
+
+    // ✅ Solo dejamos ítems comerciales con nombre en español y nombre único
+    cacheItems = rawItems.filter(item =>
       item.UniqueName &&
+      item.LocalizedNames?.['ES-ES'] &&
       !item.UniqueName.includes('JOURNAL') &&
-      !item.UniqueName.includes('T8_ROCK') &&
-      !item.UniqueName.includes('T8_TREE') &&
-      !item.UniqueName.includes('T8_ORE') &&
-      !item.UniqueName.includes('T8_HIDE') &&
-      !item.UniqueName.includes('QUESTITEM') &&
       !item.UniqueName.includes('TOKEN_') &&
-      !item.UniqueName.includes('TRASH')
+      !item.UniqueName.includes('TROPHY') &&
+      !item.UniqueName.includes('SKILLBOOK') &&
+      !item.UniqueName.includes('TRASH') &&
+      !item.UniqueName.includes('QUESTITEM') &&
+      !item.UniqueName.includes('FURNITURE')
     );
+
     lastFetchTime = Date.now();
+    console.log(`✅ ${cacheItems.length} ítems comerciales cacheados.`);
   } catch (error) {
-    console.error('Error cargando ítems reales:', error.message);
+    console.error('Error cargando ítems:', error.message);
   }
 };
 
@@ -61,13 +65,8 @@ app.get('/precios', async (req, res) => {
     const response = await axios.get(`https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=Bridgewatch,Martlock,Lymhurst,Fortsterling,Thetford,BlackMarket&qualities=1`);
     const data = response.data;
 
-    const sell = data
-      .filter(e => e.sell_price_min > 0)
-      .sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
-
-    const buy = data
-      .filter(e => e.buy_price_max > 0)
-      .sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
+    const sell = data.filter(e => e.sell_price_min > 0).sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
+    const buy = data.filter(e => e.buy_price_max > 0).sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
 
     const margen = sell && buy ? sell.sell_price_min - buy.buy_price_max : 0;
 
@@ -83,5 +82,5 @@ app.get('/precios', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Servidor en línea en puerto ${PORT}`);
+  console.log(`🚀 Servidor escuchando en puerto ${PORT}`);
 });
