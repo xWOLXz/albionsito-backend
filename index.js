@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 app.get('/items', async (req, res) => {
   try {
-    const response = await fetch('https://cdn.albiononline2d.com/data/latest/items.json');
+    const response = await fetch('https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json');
     const data = await response.json();
     res.json(data);
   } catch (error) {
