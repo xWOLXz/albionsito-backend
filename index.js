@@ -1,58 +1,54 @@
 const express = require('express');
 const cors = require('cors');
-const axios = require('axios');
-const app = express();
-const PORT = process.env.PORT || 3001;
+const fetch = require('node-fetch');
 
+const app = express();
 app.use(cors());
 
-app.get('/', (req, res) => {
-  res.send('Albionsito Backend está funcionando correctamente.');
-});
-
-// NUEVA RUTA /precios para obtener precios reales desde albion-online-data.com
 app.get('/precios', async (req, res) => {
+  const itemId = req.query.itemId;
+  const ciudades = ['Bridgewatch', 'Martlock', 'Thetford', 'Fort Sterling', 'Lymhurst'];
+  let buy = { price: 0, city: '' };
+  let sell = { price: Infinity, city: '' };
+
   try {
-    const { itemId } = req.query;
+    for (const ciudad of ciudades) {
+      const url = `https://www.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${ciudad}&qualities=1`;
+      const response = await fetch(url);
+      const data = await response.json();
 
-    if (!itemId) {
-      return res.status(400).json({ error: 'Falta el parámetro itemId' });
-    }
+      const ordenCompra = data.find(d => d.buy_price_max > 0);
+      const ordenVenta = data.find(d => d.sell_price_min > 0);
 
-    const response = await axios.get(`https://west.albion-online-data.com/api/v2/stats/prices/${itemId}?locations=Thetford,FortSterling,Lymhurst,Bridgewatch,Martlock,BlackMarket`);
-
-    const precios = response.data;
-
-    const mejoresPrecios = {
-      sell: { price: Infinity, city: null },
-      buy: { price: 0, city: null }
-    };
-
-    for (const ciudad of precios) {
-      if (ciudad.sell_price_min > 0 && ciudad.sell_price_min < mejoresPrecios.sell.price) {
-        mejoresPrecios.sell = { price: ciudad.sell_price_min, city: ciudad.city };
+      if (ordenCompra && ordenCompra.buy_price_max > buy.price) {
+        buy = { price: ordenCompra.buy_price_max, city: ciudad };
       }
 
-      if (ciudad.buy_price_max > mejoresPrecios.buy.price) {
-        mejoresPrecios.buy = { price: ciudad.buy_price_max, city: ciudad.city };
+      if (ordenVenta && ordenVenta.sell_price_min < sell.price) {
+        sell = { price: ordenVenta.sell_price_min, city: ciudad };
       }
     }
 
-    const margen = mejoresPrecios.sell.price - mejoresPrecios.buy.price;
-
-    res.json({
-      itemId,
-      buy: mejoresPrecios.buy,
-      sell: mejoresPrecios.sell,
-      margen
-    });
-
+    const margen = buy.price - sell.price;
+    res.json({ itemId, buy, sell, margen });
   } catch (error) {
-    console.error('Error al consultar precios:', error.message);
-    res.status(500).json({ error: 'Error al consultar los precios del mercado' });
+    res.status(500).json({ error: 'Error al obtener precios' });
   }
 });
 
+// 🚨 Nueva ruta: items.json
+app.get('/items', async (req, res) => {
+  try {
+    const url = 'https://cdn.albiononline2d.com/data/latest/items.json';
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener items' });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Servidor backend escuchando en el puerto ${PORT}`);
+  console.log(`Servidor escuchando en puerto ${PORT}`);
 });
