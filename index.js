@@ -11,30 +11,29 @@ let cacheItems = [];
 let lastFetchTime = 0;
 const CACHE_DURATION = 15 * 60 * 1000;
 
-const fetchItemsFromAPI = async () => {
+async function fetchItemsFromAPI() {
   try {
-    const response = await axios.get('https://cdn.albiononline2d.com/data/latest/items.json');
+    const response = await axios.get('https://raw.githubusercontent.com/mildrar/albion-data/main/items.json');
     const rawItems = response.data;
 
-    // ✅ Solo dejamos ítems comerciales con nombre en español y nombre único
-    cacheItems = rawItems.filter(item =>
+    // Solo dejamos ítems comerciales válidos con nombre y tier
+    const filteredItems = rawItems.filter(item =>
       item.UniqueName &&
-      item.LocalizedNames?.['ES-ES'] &&
-      !item.UniqueName.includes('JOURNAL') &&
-      !item.UniqueName.includes('TOKEN_') &&
-      !item.UniqueName.includes('TROPHY') &&
-      !item.UniqueName.includes('SKILLBOOK') &&
-      !item.UniqueName.includes('TRASH') &&
-      !item.UniqueName.includes('QUESTITEM') &&
-      !item.UniqueName.includes('FURNITURE')
+      item.LocalizedNames &&
+      item.LocalizedNames['ES-ES'] &&
+      !item.UniqueName.includes("QUEST") &&
+      !item.UniqueName.includes("SKIN") &&
+      !item.UniqueName.includes("JOURNAL") &&
+      !item.UniqueName.includes("TROPHY") &&
+      !item.UniqueName.includes("BLACKMARKET")
     );
 
-    lastFetchTime = Date.now();
-    console.log(`✅ ${cacheItems.length} ítems comerciales cacheados.`);
+    cacheItems = filteredItems;
+    console.log(`✅ Ítems cargados al backend: ${cacheItems.length}`);
   } catch (error) {
-    console.error('Error cargando ítems:', error.message);
+    console.error('Error al obtener los ítems desde la fuente:', error.message);
   }
-};
+}
 
 app.get('/items', async (req, res) => {
   const now = Date.now();
