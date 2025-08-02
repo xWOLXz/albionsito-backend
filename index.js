@@ -3,7 +3,7 @@ const cors = require('cors');
 const axios = require('axios');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
@@ -11,11 +11,13 @@ let cacheItems = [];
 let lastFetchTime = 0;
 const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
-// 🔍 Función para cargar los ítems reales desde GitHub
+// ✅ URL funcional y rápida
+const ITEMS_URL = 'https://cdn.jsdelivr.net/gh/mildrar/albion-items-dump@main/items.json';
+
 async function fetchItemsFromAPI() {
   try {
     console.log('🔄 Cargando ítems desde GitHub...');
-    const response = await axios.get('https://cdn.jsdelivr.net/gh/mildrar/albion-items-dump@main/items.json');
+    const response = await axios.get(ITEMS_URL);
     const rawItems = response.data;
 
     console.log(`📦 Ítems crudos obtenidos: ${rawItems.length}`);
@@ -40,26 +42,22 @@ async function fetchItemsFromAPI() {
   }
 }
 
-// 🧠 Ruta para paginar los ítems almacenados
 app.get('/items', async (req, res) => {
   const now = Date.now();
   if (now - lastFetchTime > CACHE_DURATION || cacheItems.length === 0) {
-    console.log('⚠️ Cache vacía o expirada. Re-obteniendo ítems...');
     await fetchItemsFromAPI();
   }
 
   const page = parseInt(req.query.page) || 1;
   const itemsPerPage = 30;
-  const total = cacheItems.length;
-  const totalPages = Math.ceil(total / itemsPerPage);
   const start = (page - 1) * itemsPerPage;
   const paginatedItems = cacheItems.slice(start, start + itemsPerPage);
 
   res.json({
-    total,
+    total: cacheItems.length,
     page,
-    totalPages,
-    items: paginatedItems,
+    totalPages: Math.ceil(cacheItems.length / itemsPerPage),
+    items: paginatedItems
   });
 });
 
