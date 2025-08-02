@@ -1,79 +1,38 @@
 const express = require('express');
-const fetch = require('node-fetch');
 const cors = require('cors');
+const axios = require('axios');
 
 const app = express();
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 
-const PORT = process.env.PORT || 3000;
-const ITEMS_URL = 'https://cdn.albiononline2d.com/data/latest/items.json';
+let cache = [];
+let lastFetchTime = 0;
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
-let allItems = [];
-
-const filtrarItemsComerciables = (items) => {
-  return items.filter(item =>
-    item.UniqueName &&
-    item.LocalizedNames?.['ES-ES'] &&
-    !item.UniqueName.includes('JOURNAL') &&
-    !item.UniqueName.includes('TRASH') &&
-    !item.UniqueName.includes('QUESTITEM') &&
-    !item.UniqueName.includes('T8_ROCK') &&
-    !item.UniqueName.includes('T8_TREE') &&
-    !item.UniqueName.includes('T8_ORE') &&
-    !item.UniqueName.includes('T8_HIDE') &&
-    !item.UniqueName.includes('TOKEN') &&
-    !item.UniqueName.includes('SKIN') &&
-    !item.UniqueName.includes('AVATAR')
-  );
+const fetchItemsFromAPI = async () => {
+  try {
+    const response = await axios.get('https://west.albion-online-data.com/api/v2/stats/prices/T4_BAG,T4_CAPE,T4_MAIN_SWORD,T4_MAIN_FIRESTAFF,T4_MAIN_NATURESTAFF,T4_MAIN_CURSEDSTAFF,T4_MAIN_SPEAR,T4_MAIN_DAGGER,T4_MAIN_MACE,T4_MAIN_AXE,T4_2H_BOW,T4_2H_CROSSBOW,T4_2H_HOLYSTAFF,T4_2H_ARCANESTAFF,T4_2H_CLAYMORE,T4_2H_COMBATSTAFF,T4_2H_SCYTHE,T4_2H_HAMMER,T4_2H_QUARTERSTAFF,T4_2H_SPEAR,T4_2H_CURSEDSTAFF,T4_2H_FIRESTAFF,T4_2H_NATURESTAFF,T4_2H_SWORD,T4_2H_DAGGER,T4_2H_BOW,T4_2H_CROSSBOW,T4_2H_HOLYSTAFF,T4_2H_ARCANESTAFF,T4_HEAD_LEATHER_SET1,T4_HEAD_CLOTH_SET1,T4_HEAD_PLATE_SET1,T4_ARMOR_LEATHER_SET1,T4_ARMOR_CLOTH_SET1,T4_ARMOR_PLATE_SET1,T4_SHOES_LEATHER_SET1,T4_SHOES_CLOTH_SET1,T4_SHOES_PLATE_SET1,T4_BAG,T4_CAPE?locations=Bridgewatch,Martlock,Lymhurst,Fortsterling,Thetford,BlackMarket&qualities=1');
+    cache = response.data;
+    lastFetchTime = Date.now();
+  } catch (error) {
+    console.error('Error al obtener datos de la API externa:', error.message);
+  }
 };
 
 app.get('/items', async (req, res) => {
+  const now = Date.now();
+  if (now - lastFetchTime > CACHE_DURATION || cache.length === 0) {
+    await fetchItemsFromAPI();
+  }
+
   const page = parseInt(req.query.page) || 1;
-  const perPage = 30;
+  const itemsPerPage = 30;
+  const start = (page - 1) * itemsPerPage;
+  const paginatedItems = cache.slice(start, start + itemsPerPage);
 
-  try {
-    if (allItems.length === 0) {
-      const response = await fetch(ITEMS_URL);
-      const data = await response.json();
-      allItems = filtrarItemsComerciables(data);
-    }
-
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    const pageItems = allItems.slice(start, end);
-
-    res.json({ items: pageItems });
-  } catch (err) {
-    console.error('Error cargando ítems:', err);
-    res.status(500).json({ error: 'Error cargando ítems' });
-  }
-});
-
-app.get('/precios', async (req, res) => {
-  const itemId = req.query.itemId;
-  if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
-
-  try {
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json`;
-    const response = await fetch(url);
-    const data = await response.json();
-
-    const ciudades = ['Bridgewatch', 'Martlock', 'Lymhurst', 'Fort Sterling', 'Thetford', 'Caerleon'];
-    const sell = data
-      .filter(entry => entry.sell_price_min > 0 && ciudades.includes(entry.city))
-      .sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
-
-    const buy = data
-      .filter(entry => entry.buy_price_max > 0 && ciudades.includes(entry.city))
-      .sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
-
-    const margen = sell && buy ? sell.sell_price_min - buy.buy_price_max : 0;
-
-    res.json({ sell: sell || {}, buy: buy || {}, margen });
-  } catch (err) {
-    console.error('Error cargando precios:', err);
-    res.status(500).json({ error: 'Error al obtener precios' });
-  }
+  res.json(paginatedItems);
 });
 
 app.listen(PORT, () => {
