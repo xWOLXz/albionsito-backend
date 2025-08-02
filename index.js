@@ -1,88 +1,81 @@
 const express = require('express');
-const axios = require('axios');
+const fetch = require('node-fetch');
 const cors = require('cors');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(cors());
 
-const ciudades = ['Bridgewatch', 'Martlock', 'Thetford', 'Fort Sterling', 'Lymhurst'];
-const encantamientos = ['', '@1', '@2', '@3', '@4'];
-const tiers = ['T4', 'T5', 'T6', 'T7', 'T8'];
+const PORT = process.env.PORT || 3000;
+const ITEMS_URL = 'https://cdn.albiononline2d.com/data/latest/items.json';
+
+let allItems = [];
+
+const filtrarItemsComerciables = (items) => {
+  return items.filter(item =>
+    item.UniqueName &&
+    item.LocalizedNames?.['ES-ES'] &&
+    !item.UniqueName.includes('JOURNAL') &&
+    !item.UniqueName.includes('TRASH') &&
+    !item.UniqueName.includes('QUESTITEM') &&
+    !item.UniqueName.includes('T8_ROCK') &&
+    !item.UniqueName.includes('T8_TREE') &&
+    !item.UniqueName.includes('T8_ORE') &&
+    !item.UniqueName.includes('T8_HIDE') &&
+    !item.UniqueName.includes('TOKEN') &&
+    !item.UniqueName.includes('SKIN') &&
+    !item.UniqueName.includes('AVATAR')
+  );
+};
 
 app.get('/items', async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const perPage = 30;
+
   try {
-    const nombresAPI = 'https://raw.githubusercontent.com/marcelo-mason/albion-data-localization/master/items.json';
-    const nombresResponse = await axios.get(nombresAPI);
-    const nombres = nombresResponse.data['es'];
-
-    // 🧠 Generamos combinaciones por defecto T4-T5 sin romper el servidor
-    const itemsBase = ['BAG', 'CAPE', '2H_BOW', 'ARMOR_PLATE_SET1', 'HEAD_PLATE_SET1', 'SHOES_PLATE_SET1', 'MAIN_SWORD', 'OFF_SHIELD', '2H_FIRESTAFF', '2H_CROSSBOW'];
-
-    const combinaciones = [];
-    for (let tier of tiers) {
-      for (let base of itemsBase) {
-        for (let enc of encantamientos) {
-          combinaciones.push(`${tier}_${base}${enc}`);
-        }
-      }
+    if (allItems.length === 0) {
+      const response = await fetch(ITEMS_URL);
+      const data = await response.json();
+      allItems = filtrarItemsComerciables(data);
     }
 
-    // 🔄 Límite para no explotar Render (100 ítems por página)
-    const PAGE = parseInt(req.query.page || 1);
-    const LIMIT = 100;
-    const start = (PAGE - 1) * LIMIT;
-    const end = PAGE * LIMIT;
-    const itemsPagina = combinaciones.slice(start, end);
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    const pageItems = allItems.slice(start, end);
 
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemsPagina.join(',')}?locations=${ciudades.join(',')}`;
-    const response = await axios.get(url);
-    const datos = response.data;
+    res.json({ items: pageItems });
+  } catch (err) {
+    console.error('Error cargando ítems:', err);
+    res.status(500).json({ error: 'Error cargando ítems' });
+  }
+});
 
-    const porItem = {};
+app.get('/precios', async (req, res) => {
+  const itemId = req.query.itemId;
+  if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
 
-    for (const item of datos) {
-      const { item_id, city, sell_price_min, buy_price_max } = item;
-      if (!sell_price_min || !buy_price_max) continue;
+  try {
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json`;
+    const response = await fetch(url);
+    const data = await response.json();
 
-      if (!porItem[item_id]) {
-        porItem[item_id] = {
-          item_id,
-          nombre: nombres[item_id] || item_id,
-          icono: `https://render.albiononline.com/v1/item/${item_id}.png`,
-          venta: sell_price_min,
-          compra: buy_price_max,
-          ciudad_venta: city,
-          ciudad_compra: city,
-        };
-      } else {
-        if (sell_price_min > porItem[item_id].venta) {
-          porItem[item_id].venta = sell_price_min;
-          porItem[item_id].ciudad_venta = city;
-        }
-        if (buy_price_max < porItem[item_id].compra) {
-          porItem[item_id].compra = buy_price_max;
-          porItem[item_id].ciudad_compra = city;
-        }
-      }
-    }
+    const ciudades = ['Bridgewatch', 'Martlock', 'Lymhurst', 'Fort Sterling', 'Thetford', 'Caerleon'];
+    const sell = data
+      .filter(entry => entry.sell_price_min > 0 && ciudades.includes(entry.city))
+      .sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
 
-    const resultados = Object.values(porItem)
-      .map(item => ({
-        ...item,
-        ganancia: item.venta - item.compra,
-      }))
-      .filter(item => item.ganancia > 0)
-      .sort((a, b) => b.ganancia - a.ganancia);
+    const buy = data
+      .filter(entry => entry.buy_price_max > 0 && ciudades.includes(entry.city))
+      .sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
 
-    res.json(resultados);
-  } catch (error) {
-    console.error('💥 Backend Error:', error.message);
-    res.status(500).json({ error: 'Error interno del servidor' });
+    const margen = sell && buy ? sell.sell_price_min - buy.buy_price_max : 0;
+
+    res.json({ sell: sell || {}, buy: buy || {}, margen });
+  } catch (err) {
+    console.error('Error cargando precios:', err);
+    res.status(500).json({ error: 'Error al obtener precios' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Backend escuchando en puerto ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
