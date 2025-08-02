@@ -8,14 +8,19 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 
 let cacheItems = [];
-const ITEMS_PER_PAGE = 30;
+let lastFetchTime = 0;
+const CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 
-// ✅ Función que carga los ítems antes de iniciar el servidor
+// 🔍 Función para cargar los ítems reales desde GitHub
 async function fetchItemsFromAPI() {
   try {
+    console.log('🔄 Cargando ítems desde GitHub...');
     const response = await axios.get('https://raw.githubusercontent.com/mildrar/albion-data/main/items.json');
     const rawItems = response.data;
 
+    console.log(`📦 Ítems crudos obtenidos: ${rawItems.length}`);
+
+    // Solo dejamos ítems comerciales válidos
     const filteredItems = rawItems.filter(item =>
       item.UniqueName &&
       item.LocalizedNames &&
@@ -27,35 +32,38 @@ async function fetchItemsFromAPI() {
       !item.UniqueName.includes("BLACKMARKET")
     );
 
+    console.log(`✅ Ítems comerciales filtrados: ${filteredItems.length}`);
+
     cacheItems = filteredItems;
-    console.log(`✅ Ítems cargados al backend: ${cacheItems.length}`);
+    lastFetchTime = Date.now();
   } catch (error) {
-    console.error('❌ Error al obtener los ítems desde GitHub:', error.message);
+    console.error('❌ Error al obtener los ítems:', error.message);
   }
 }
 
-app.get('/items', (req, res) => {
+// 🧠 Ruta para paginar los ítems almacenados
+app.get('/items', async (req, res) => {
+  const now = Date.now();
+  if (now - lastFetchTime > CACHE_DURATION || cacheItems.length === 0) {
+    console.log('⚠️ Cache vacía o expirada. Re-obteniendo ítems...');
+    await fetchItemsFromAPI();
+  }
+
   const page = parseInt(req.query.page) || 1;
+  const itemsPerPage = 30;
   const total = cacheItems.length;
-  const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
-  const start = (page - 1) * ITEMS_PER_PAGE;
-  const items = cacheItems.slice(start, start + ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(total / itemsPerPage);
+  const start = (page - 1) * itemsPerPage;
+  const paginatedItems = cacheItems.slice(start, start + itemsPerPage);
 
   res.json({
     total,
     page,
     totalPages,
-    items,
+    items: paginatedItems,
   });
 });
 
-// ✅ Carga ítems antes de iniciar el servidor
-fetchItemsFromAPI().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  });
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
 });
-
-// Ejecutar la descarga de ítems apenas arranca el servidor
-fetchItemsFromAPI();
-
