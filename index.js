@@ -14,6 +14,7 @@ const ITEM_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
 let lastPrices = {}; // cache por itemId
 let lastPriceFetch = {}; // timestamps por itemId
 
+// 🔄 Obtener y filtrar ítems válidos de la API
 const fetchItemsFromAlbion = async () => {
   try {
     const response = await axios.get('https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json');
@@ -42,7 +43,7 @@ app.get('/status', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-// Ruta GET /items?page=1
+// ✅ Ruta GET /items?page=1 con paginación
 app.get('/items', async (req, res) => {
   if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
     await fetchItemsFromAlbion();
@@ -61,7 +62,7 @@ app.get('/items', async (req, res) => {
   });
 });
 
-// Ruta GET /precios?itemId=T4_BAG
+// ✅ Ruta GET /precios?itemId=T4_BAG para obtener los mejores precios
 app.get('/precios', async (req, res) => {
   const itemId = req.query.itemId;
   if (!itemId) {
@@ -106,7 +107,7 @@ app.get('/precios', async (req, res) => {
   }
 });
 
-// Iniciar servidor
+// 🚀 Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Backend corriendo en puerto ${PORT}`);
 });
