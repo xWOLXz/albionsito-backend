@@ -2,6 +2,16 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
+// Ruta para obtener todos los ítems para búsqueda (precarga en el buscador)
+router.get('/api/items/all', async (req, res) => {
+  try {
+    const items = await Item.find({}, { _id: 0, item_id: 1, nombre: 1, imagen: 1 });
+    res.json(items);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener los ítems' });
+  }
+});
+
 // Ruta para obtener todos los ítems precargados desde el backend
 router.get('/items/all', async (req, res) => {
   try {
