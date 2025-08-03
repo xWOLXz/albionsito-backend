@@ -1,137 +1,25 @@
 const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
 const mongoose = require('mongoose');
-const itemsRoutes = require('./routes/items');
-app.use('/api', itemsRoutes);
+const cors = require('cors');
+require('dotenv').config();
 
 const app = express();
+const PORT = process.env.PORT || 3001;
+
 app.use(cors());
 app.use(express.json());
 
-// Aquí se conecta el archivo de rutas
-app.use('/', require('./routes/items'));
-
-const PORT = process.env.PORT || 3001;
-
+// Conexión a MongoDB
 mongoose.connect(process.env.MONGO_URL)
   .then(() => {
-    console.log('Conectado a MongoDB');
+    console.log('✅ Conectado a MongoDB');
     app.listen(PORT, () => {
-      console.log(`Servidor escuchando en el puerto ${PORT}`);
+      console.log(`✅ Servidor escuchando en el puerto ${PORT}`);
     });
   })
   .catch(error => {
-    console.error('Error al conectar a MongoDB:', error);
+    console.error('❌ Error al conectar a MongoDB:', error);
   });
 
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-
-app.use(cors());
-
-// Estado para la conexiÃ³n
-app.get('/status', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-const itemsRoutes = require('./routes/items');
-app.use('/api', itemsRoutes);
-
-// Cache de Ã­tems
-let cachedItems = [];
-let lastItemFetch = 0;
-const ITEM_CACHE_DURATION = 15 * 60 * 1000; // 15 minutos
-
-// Cache de precios por itemId
-let lastPrices = {};
-let lastPriceFetch = {};
-
-const fetchItemsFromAlbion = async () => {
-  try {
-    const response = await axios.get(
-      'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
-    );
-    const data = response.data;
-    const filtered = data.filter(item =>
-      item.LocalizedNames?.['ES-ES'] &&
-      item.UniqueName &&
-      !item.UniqueName.includes('QUEST') &&
-      !item.UniqueName.includes('JOURNAL') &&
-      !item.UniqueName.includes('TROPHY') &&
-      !item.UniqueName.includes('SKIN') &&
-      !item.UniqueName.includes('TEST') &&
-      !item.UniqueName.includes('BLACKMARKET')
-    );
-    cachedItems = filtered;
-    lastItemFetch = Date.now();
-    console.log(`âœ… Items cacheados: ${cachedItems.length}`);
-  } catch (error) {
-    console.error('âŒ Error al obtener Ã­tems:', error.message);
-  }
-};
-
-app.get('/items', async (req, res) => {
-  if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
-    await fetchItemsFromAlbion();
-  }
-
-  const page = parseInt(req.query.page) || 1;
-  const perPage = 30;
-  const start = (page - 1) * perPage;
-  const paginated = cachedItems.slice(start, start + perPage);
-
-  res.json({
-    total: cachedItems.length,
-    page,
-    totalPages: Math.ceil(cachedItems.length / perPage),
-    items: paginated
-  });
-});
-
-app.get('/precios', async (req, res) => {
-  const itemId = req.query.itemId;
-  if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
-
-  const now = Date.now();
-  const cacheValid = lastPrices[itemId] && (now - lastPriceFetch[itemId] < 5 * 60 * 1000);
-
-  if (cacheValid) {
-    return res.json(lastPrices[itemId]);
-  }
-
-  try {
-    const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien"];
-    const qualities = 1;
-
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${cities.join(',')}&qualities=${qualities}`;
-    const response = await axios.get(url);
-    const data = response.data;
-
-    const validSell = data.filter(e => e.sell_price_min > 0);
-    const validBuy = data.filter(e => e.buy_price_max > 0);
-
-    const bestSell = validSell.sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
-    const bestBuy = validBuy.sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
-
-    const result = {
-      itemId,
-      sell: bestSell ? { price: bestSell.sell_price_min, city: bestSell.city } : { price: 0, city: null },
-      buy: bestBuy ? { price: bestBuy.buy_price_max, city: bestBuy.city } : { price: 0, city: null },
-      margen: (bestSell && bestBuy) ? bestBuy.buy_price_max - bestSell.sell_price_min : 0
-    };
-
-    lastPrices[itemId] = result;
-    lastPriceFetch[itemId] = now;
-
-    res.json(result);
-  } catch (error) {
-    console.error(`âŒ Error al obtener precios de ${itemId}:`, error.message);
-    res.status(500).json({ error: 'Error obteniendo precios' });
-  }
-});
-
-app.listen(PORT, () => {
-  console.log(`ðŸš€ Backend corriendo en puerto ${PORT}`);
-});
+// Rutas
+app.use('/', require('./routes/items'));
