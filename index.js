@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/precios', require('./routes/precios'));
 
 // Conexión a MongoDB
 mongoose.connect(process.env.MONGO_URL)
