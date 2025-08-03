@@ -1,23 +1,23 @@
-// ✅ BACKEND (archivo: routes/items.js)
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
-// Cache para ítems y precios
+// Cache de ítems
 let cachedItems = [];
 let lastItemFetch = 0;
 const ITEM_CACHE_DURATION = 15 * 60 * 1000;
 
+// Cache de precios
 let lastPrices = {};
 let lastPriceFetch = {};
 
-// Cargar todos los ítems desde GitHub
 const fetchItemsFromAlbion = async () => {
   try {
     const response = await axios.get(
       'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
     );
     const data = response.data;
+
     const filtered = data.filter(item =>
       item.LocalizedNames?.['ES-ES'] &&
       item.UniqueName &&
@@ -28,30 +28,36 @@ const fetchItemsFromAlbion = async () => {
       !item.UniqueName.includes('TEST') &&
       !item.UniqueName.includes('BLACKMARKET')
     );
+
     cachedItems = filtered;
     lastItemFetch = Date.now();
-    console.log(`✅ Items cacheados: ${cachedItems.length}`);
+
+    console.log(`✅ Ítems cacheados correctamente: ${cachedItems.length}`);
   } catch (error) {
     console.error('❌ Error al obtener ítems:', error.message);
   }
 };
 
-// Ruta: obtener todos los ítems sin paginación
+// Obtener todos los ítems
 router.get('/items/all', async (req, res) => {
   if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
     await fetchItemsFromAlbion();
   }
+
   res.json(cachedItems);
 });
 
-// Ruta: obtener precios
+// Obtener precios por itemId
 router.get('/precios', async (req, res) => {
   const itemId = req.query.itemId;
   if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
 
   const now = Date.now();
-  const cacheValid = lastPrices[itemId] && (now - lastPriceFetch[itemId] < 5 * 60 * 1000);
-  if (cacheValid) return res.json(lastPrices[itemId]);
+  const cacheValida = lastPrices[itemId] && (now - lastPriceFetch[itemId] < 5 * 60 * 1000);
+  if (cacheValida) {
+    console.log(`📦 Usando cache para ${itemId}`);
+    return res.json(lastPrices[itemId]);
+  }
 
   try {
     const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien"];
@@ -77,10 +83,11 @@ router.get('/precios', async (req, res) => {
     lastPrices[itemId] = result;
     lastPriceFetch[itemId] = now;
 
+    console.log(`💰 Precios obtenidos para ${itemId}:`, result);
     res.json(result);
   } catch (error) {
     console.error(`❌ Error al obtener precios de ${itemId}:`, error.message);
-    res.status(500).json({ error: 'Error obteniendo precios' });
+    res.status(500).json({ error: 'Error al obtener precios' });
   }
 });
 
