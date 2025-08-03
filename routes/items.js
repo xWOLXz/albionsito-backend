@@ -3,7 +3,6 @@ const router = express.Router();
 const mongoose = require('mongoose');
 const fetch = require('node-fetch');
 
-// Esquema para los ítems (ajústalo si usas otro modelo)
 const itemSchema = new mongoose.Schema({
   item_id: String,
   nombre: String,
@@ -12,7 +11,7 @@ const itemSchema = new mongoose.Schema({
 
 const Item = mongoose.model('Item', itemSchema);
 
-// Obtener todos los ítems para autocompletar (buscador)
+// ✅ Todos los ítems para el buscador
 router.get('/api/items/all', async (req, res) => {
   try {
     const items = await Item.find({}, { _id: 0, item_id: 1, nombre: 1, imagen: 1 });
@@ -22,7 +21,7 @@ router.get('/api/items/all', async (req, res) => {
   }
 });
 
-// Obtener ítems paginados
+// ✅ Ítems por paginación (si se quiere usar)
 router.get('/api/items', async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -39,7 +38,7 @@ router.get('/api/items', async (req, res) => {
   }
 });
 
-// Obtener precios de un ítem específico
+// ✅ Precios del ítem
 router.get('/api/precios', async (req, res) => {
   try {
     const { itemId } = req.query;
@@ -48,7 +47,15 @@ router.get('/api/precios', async (req, res) => {
       return res.status(400).json({ error: 'Falta itemId en la consulta' });
     }
 
-    const response = await fetch(`https://west.albion-online-data.com/api/v2/stats/prices/${itemId}?locations=Bridgewatch,Martlock,Lymhurst,Fort Sterling,Thetford,Black Market,Caerleon`);
+    const safeItemId = encodeURIComponent(itemId.trim());
+    const apiUrl = `https://west.albion-online-data.com/api/v2/stats/prices/${safeItemId}?locations=Bridgewatch,Martlock,Lymhurst,Fort Sterling,Thetford,Black Market,Caerleon`;
+
+    const response = await fetch(apiUrl);
+
+    if (!response.ok) {
+      return res.status(404).json({ error: 'Item no encontrado o sin datos' });
+    }
+
     const data = await response.json();
 
     const ventas = data.filter(entry => entry.sell_price_min > 0);
@@ -73,7 +80,7 @@ router.get('/api/precios', async (req, res) => {
 
   } catch (error) {
     console.error('Error en /api/precios:', error);
-    res.status(500).json({ error: 'No se pudieron obtener precios' });
+    res.status(500).json({ error: 'Error al obtener precios del ítem' });
   }
 });
 
