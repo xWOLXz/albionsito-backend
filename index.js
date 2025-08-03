@@ -12,6 +12,9 @@ app.get('/status', (req, res) => {
   res.json({ status: 'ok' });
 });
 
+const itemsRoutes = require('./routes/items');
+app.use('/api', itemsRoutes);
+
 // Cache de ítems
 let cachedItems = [];
 let lastItemFetch = 0;
