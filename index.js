@@ -1,8 +1,30 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const mongoose = require('mongoose');
 const itemsRoutes = require('./routes/items');
 app.use('/api', itemsRoutes);
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Aquí se conecta el archivo de rutas
+app.use('/', require('./routes/items'));
+
+const PORT = process.env.PORT || 3001;
+
+mongoose.connect(process.env.MONGO_URL)
+  .then(() => {
+    console.log('Conectado a MongoDB');
+    app.listen(PORT, () => {
+      console.log(`Servidor escuchando en el puerto ${PORT}`);
+    });
+  })
+  .catch(error => {
+    console.error('Error al conectar a MongoDB:', error);
+  });
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
