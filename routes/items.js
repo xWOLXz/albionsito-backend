@@ -1,86 +1,83 @@
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
-const fetch = require('node-fetch');
+const axios = require('axios');
 
-const itemSchema = new mongoose.Schema({
-  item_id: String,
-  nombre: String,
-  imagen: String,
-});
+// Cache de ítems y precios
+let cachedItems = [];
+let lastItemFetch = 0;
+const ITEM_CACHE_DURATION = 15 * 60 * 1000;
 
-const Item = mongoose.model('Item', itemSchema);
+let lastPrices = {};
+let lastPriceFetch = {};
 
-// ✅ Todos los ítems para el buscador
-router.get('/api/items/all', async (req, res) => {
+const fetchItemsFromAlbion = async () => {
   try {
-    const items = await Item.find({}, { _id: 0, item_id: 1, nombre: 1, imagen: 1 });
-    res.json(items);
+    const response = await axios.get(
+      'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
+    );
+    const data = response.data;
+    const filtered = data.filter(item =>
+      item.LocalizedNames?.['ES-ES'] &&
+      item.UniqueName &&
+      !item.UniqueName.includes('QUEST') &&
+      !item.UniqueName.includes('JOURNAL') &&
+      !item.UniqueName.includes('TROPHY') &&
+      !item.UniqueName.includes('SKIN') &&
+      !item.UniqueName.includes('TEST') &&
+      !item.UniqueName.includes('BLACKMARKET')
+    );
+    cachedItems = filtered;
+    lastItemFetch = Date.now();
+    console.log(`✅ Items cacheados: ${cachedItems.length}`);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener los ítems' });
+    console.error('❌ Error al obtener ítems:', error.message);
   }
-});
+};
 
-// ✅ Ítems por paginación (si se quiere usar)
-router.get('/api/items', async (req, res) => {
-  try {
-    const page = parseInt(req.query.page) || 1;
-    const pageSize = 30;
-    const skip = (page - 1) * pageSize;
-
-    const items = await Item.find({}, { _id: 0, item_id: 1, nombre: 1, imagen: 1 })
-      .skip(skip)
-      .limit(pageSize);
-
-    res.json(items);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener ítems paginados' });
+router.get('/items/all', async (req, res) => {
+  if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
+    await fetchItemsFromAlbion();
   }
+
+  res.json(cachedItems);
 });
 
-// ✅ Precios del ítem
-router.get('/api/precios', async (req, res) => {
+router.get('/precios', async (req, res) => {
+  const itemId = req.query.itemId;
+  if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
+
+  const now = Date.now();
+  const cacheValid = lastPrices[itemId] && (now - lastPriceFetch[itemId] < 5 * 60 * 1000);
+  if (cacheValid) return res.json(lastPrices[itemId]);
+
   try {
-    const { itemId } = req.query;
+    const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien"];
+    const qualities = 1;
 
-    if (!itemId) {
-      return res.status(400).json({ error: 'Falta itemId en la consulta' });
-    }
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${cities.join(',')}&qualities=${qualities}`;
+    const response = await axios.get(url);
+    const data = response.data;
 
-    const safeItemId = encodeURIComponent(itemId.trim());
-    const apiUrl = `https://west.albion-online-data.com/api/v2/stats/prices/${safeItemId}?locations=Bridgewatch,Martlock,Lymhurst,Fort Sterling,Thetford,Black Market,Caerleon`;
+    const validSell = data.filter(e => e.sell_price_min > 0);
+    const validBuy = data.filter(e => e.buy_price_max > 0);
 
-    const response = await fetch(apiUrl);
+    const bestSell = validSell.sort((a, b) => a.sell_price_min - b.sell_price_min)[0];
+    const bestBuy = validBuy.sort((a, b) => b.buy_price_max - a.buy_price_max)[0];
 
-    if (!response.ok) {
-      return res.status(404).json({ error: 'Item no encontrado o sin datos' });
-    }
+    const result = {
+      itemId,
+      sell: bestSell ? { price: bestSell.sell_price_min, city: bestSell.city } : { price: 0, city: null },
+      buy: bestBuy ? { price: bestBuy.buy_price_max, city: bestBuy.city } : { price: 0, city: null },
+      margen: (bestSell && bestBuy) ? bestBuy.buy_price_max - bestSell.sell_price_min : 0
+    };
 
-    const data = await response.json();
+    lastPrices[itemId] = result;
+    lastPriceFetch[itemId] = now;
 
-    const ventas = data.filter(entry => entry.sell_price_min > 0);
-    const compras = data.filter(entry => entry.buy_price_max > 0);
-
-    const mejorVenta = ventas.sort((a, b) => a.sell_price_min - b.sell_price_min)[0] || {};
-    const mejorCompra = compras.sort((a, b) => b.buy_price_max - a.buy_price_max)[0] || {};
-
-    res.json({
-      sell: {
-        price: mejorVenta.sell_price_min || 0,
-        city: mejorVenta.city || 'Desconocido',
-      },
-      buy: {
-        price: mejorCompra.buy_price_max || 0,
-        city: mejorCompra.city || 'Desconocido',
-      },
-      margen: mejorVenta.sell_price_min && mejorCompra.buy_price_max
-        ? mejorCompra.buy_price_max - mejorVenta.sell_price_min
-        : 0,
-    });
-
+    res.json(result);
   } catch (error) {
-    console.error('Error en /api/precios:', error);
-    res.status(500).json({ error: 'Error al obtener precios del ítem' });
+    console.error(`❌ Error al obtener precios de ${itemId}:`, error.message);
+    res.status(500).json({ error: 'Error obteniendo precios' });
   }
 });
 
