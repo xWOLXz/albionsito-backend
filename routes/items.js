@@ -1,8 +1,9 @@
+// ✅ BACKEND (archivo: routes/items.js)
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 
-// Cache de ítems y precios
+// Cache para ítems y precios
 let cachedItems = [];
 let lastItemFetch = 0;
 const ITEM_CACHE_DURATION = 15 * 60 * 1000;
@@ -10,57 +11,41 @@ const ITEM_CACHE_DURATION = 15 * 60 * 1000;
 let lastPrices = {};
 let lastPriceFetch = {};
 
-// ✅ Obtener TODOS los ítems desde la API oficial (paginando)
+// Cargar todos los ítems desde GitHub
 const fetchItemsFromAlbion = async () => {
   try {
-    const todosLosItems = [];
-    let page = 1;
-    let totalPages = 1;
-
-    while (page <= totalPages) {
-      const res = await axios.get(`https://gameinfo.albiononline.com/api/gameinfo/items?page=${page}`);
-      const data = res.data;
-      if (page === 1) totalPages = data.totalPages;
-      todosLosItems.push(...data.items);
-      page++;
-    }
-
-    // 🎯 Filtrar y mapear
-    const filtrados = todosLosItems
-      .filter(item =>
-        item.UniqueName &&
-        item.LocalizedNames?.['ES-ES'] &&
-        !item.UniqueName.includes('QUEST') &&
-        !item.UniqueName.includes('JOURNAL') &&
-        !item.UniqueName.includes('TROPHY') &&
-        !item.UniqueName.includes('SKIN') &&
-        !item.UniqueName.includes('TEST') &&
-        !item.UniqueName.includes('BLACKMARKET')
-      )
-      .map(item => ({
-        item_id: item.UniqueName,
-        nombre: item.LocalizedNames['ES-ES'],
-        imagen: `https://render.albiononline.com/v1/item/${item.UniqueName}.png`
-      }));
-
-    cachedItems = filtrados;
+    const response = await axios.get(
+      'https://raw.githubusercontent.com/broderickhyman/ao-bin-dumps/master/formatted/items.json'
+    );
+    const data = response.data;
+    const filtered = data.filter(item =>
+      item.LocalizedNames?.['ES-ES'] &&
+      item.UniqueName &&
+      !item.UniqueName.includes('QUEST') &&
+      !item.UniqueName.includes('JOURNAL') &&
+      !item.UniqueName.includes('TROPHY') &&
+      !item.UniqueName.includes('SKIN') &&
+      !item.UniqueName.includes('TEST') &&
+      !item.UniqueName.includes('BLACKMARKET')
+    );
+    cachedItems = filtered;
     lastItemFetch = Date.now();
-    console.log(`✅ Ítems cacheados: ${cachedItems.length}`);
+    console.log(`✅ Items cacheados: ${cachedItems.length}`);
   } catch (error) {
     console.error('❌ Error al obtener ítems:', error.message);
   }
 };
 
-// ✅ Ruta unificada para el frontend
-router.get('/api/items', async (req, res) => {
+// Ruta: obtener todos los ítems sin paginación
+router.get('/items/all', async (req, res) => {
   if (Date.now() - lastItemFetch > ITEM_CACHE_DURATION || cachedItems.length === 0) {
     await fetchItemsFromAlbion();
   }
   res.json(cachedItems);
 });
 
-// ✅ Precios por ítem con cache
-router.get('/api/precios', async (req, res) => {
+// Ruta: obtener precios
+router.get('/precios', async (req, res) => {
   const itemId = req.query.itemId;
   if (!itemId) return res.status(400).json({ error: 'Falta itemId' });
 
@@ -70,10 +55,11 @@ router.get('/api/precios', async (req, res) => {
 
   try {
     const cities = ["Bridgewatch", "Martlock", "Lymhurst", "FortSterling", "Thetford", "Caerleon", "Brecilien"];
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${cities.join(',')}&qualities=1`;
+    const qualities = 1;
 
-    const resAlbion = await axios.get(url);
-    const data = resAlbion.data;
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=${cities.join(',')}&qualities=${qualities}`;
+    const response = await axios.get(url);
+    const data = response.data;
 
     const validSell = data.filter(e => e.sell_price_min > 0);
     const validBuy = data.filter(e => e.buy_price_max > 0);
