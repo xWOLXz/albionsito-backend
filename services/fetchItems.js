@@ -1,19 +1,30 @@
-const axios = require("axios");
+const axios = require('axios');
 
-let cachedItems = null;
+const getItems = async () => {
+  try {
+    console.log('🔄 Robando items desde west.albion-online-data.com');
+    
+    const response = await axios.get('https://west.albion-online-data.com/api/gameinfo/items');
 
-async function getItems() {
-  if (cachedItems) return cachedItems;
+    if (!Array.isArray(response.data)) {
+      console.error('❌ La respuesta no es un array:', response.data);
+      return [];
+    }
 
-  const response = await axios.get("https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json");
+    const items = response.data.map(item => ({
+      id: item.UniqueName,
+      nombre: item.LocalizedNames?.['ES-ES'] || item.LocalizedNames?.['EN-US'] || item.UniqueName,
+      descripcion: item.LocalizedDescriptions?.['ES-ES'] || '',
+      tipo: item.ShopCategory,
+      icono: item.UniqueName, // Aquí no se arma URL aún, se usa para render más adelante
+    }));
 
-  cachedItems = response.data.map(item => ({
-    id: item.UniqueName,
-    name: item.LocalizedNames?.["ES-ES"] || item.UniqueName,
-    icon: `https://render.albiononline.com/v1/item/${item.UniqueName}.png`
-  }));
-
-  return cachedItems;
-}
+    console.log(`✅ Robados ${items.length} items`);
+    return items;
+  } catch (error) {
+    console.error('❌ Error al obtener items:', error.message);
+    return [];
+  }
+};
 
 module.exports = { getItems };
