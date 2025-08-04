@@ -1,24 +1,25 @@
 import axios from 'axios';
 
 export async function getItems() {
-  const url = 'https://west.albion-online-data.com/api/v2/items';
+  const url = 'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json';
 
   try {
-    const response = await axios.get(url, {
-      headers: {
-        'Accept-Language': 'es-ES',
-      },
-    });
+    const response = await axios.get(url);
 
     const data = Array.isArray(response.data) ? response.data : [];
 
     const itemsFiltrados = data
-      .filter((item) => item.UniqueName && item.ShopCategory)
+      .filter(
+        (item) =>
+          item.UniqueName &&
+          item.LocalizedNames?.['ES-ES'] &&
+          !item.UniqueName.includes('@')
+      )
       .map((item) => ({
         id: item.UniqueName,
-        nombre: item.LocalizedNames?.['ES-ES'] || item.LocalizedNames?.['EN-US'] || item.UniqueName,
+        nombre: item.LocalizedNames['ES-ES'],
         descripcion: item.LocalizedDescriptions?.['ES-ES'] || '',
-        tipo: item.ShopCategory,
+        tipo: item.ShopCategory || '',
         icono: item.UniqueName,
       }));
 
@@ -26,7 +27,7 @@ export async function getItems() {
     return itemsFiltrados;
 
   } catch (error) {
-    console.error('❌ Error al obtener los ítems:', error.message);
+    console.error('❌ Error al obtener items:', error.message);
     return [];
   }
 }
