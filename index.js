@@ -1,9 +1,9 @@
 const express = require('express');
 const cors = require('cors');
-const itemsRoutes = require('./routes/items');
+const apiRoutes = require("./routes/apiRoutes");
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json());
@@ -13,10 +13,10 @@ app.get('/', (req, res) => {
   res.send('Albionsito Backend funcionando 🎯');
 });
 
-// Ruta para obtener los ítems
-app.use('/api/items', itemsRoutes);
+app.use(cors());
+app.use(express.json());
+app.use("/", apiRoutes);
 
-// Iniciar el servidor
 app.listen(PORT, () => {
-  console.log(`Servidor backend iniciado en http://localhost:${PORT}`);
+  console.log(`🚀 Backend corriendo en http://localhost:${PORT}`);
 });
