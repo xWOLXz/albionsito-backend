@@ -1,25 +1,22 @@
 // albionsito-backend/index.js
 const express = require("express");
 const cors = require("cors");
-const { getPrices } = require("./services/fetchPrices");
+const { getAllPrices } = require("./services/fetchPrices");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
-app.get("/api/precios/:id", async (req, res) => {
-  const { id } = req.params;
-
+app.get("/items", async (req, res) => {
   try {
-    const resultado = await getPrices(id);
-    res.json(resultado);
+    const data = await getAllPrices();
+    res.json(data);
   } catch (error) {
-    console.error("❌ Error en /api/precios:", error.message);
-    res.status(500).json({ error: "Error interno del servidor" });
+    res.status(500).json({ error: "Error al obtener los datos" });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Backend principal corriendo en http://localhost:${PORT}`);
+  console.log(`✅ Backend 1 escuchando en http://localhost:${PORT}`);
 });
