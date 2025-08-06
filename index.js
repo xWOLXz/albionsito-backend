@@ -12,12 +12,17 @@ let marketData = [];
 const fetchMarketData = async () => {
   try {
     const cities = ['Bridgewatch', 'Martlock', 'Thetford', 'Fort Sterling', 'Lymhurst', 'Caerleon'];
-    const qualities = [1]; // Calidad normal
+    const qualities = [1];
     const itemsUrl = 'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json';
 
     console.log(`[Backend1] ⏳ Obteniendo items...`);
     const itemsResponse = await fetch(itemsUrl);
     const items = await itemsResponse.json();
+
+    if (!Array.isArray(items)) {
+      console.error('[Backend1] ❌ El JSON de items no es un array:', items);
+      return;
+    }
 
     console.log(`[Backend1] 🧩 Total items obtenidos del JSON: ${items.length}`);
 
@@ -75,11 +80,10 @@ const fetchMarketData = async () => {
   }
 };
 
-// Ejecutar al inicio y cada 10 min
+// Ejecutar y actualizar cada 10 min
 fetchMarketData();
 setInterval(fetchMarketData, 10 * 60 * 1000);
 
-// Endpoint API
 app.get('/items', (req, res) => {
   console.log(`[Backend1] 📤 Petición a /items. Total: ${marketData.length}`);
   res.json(marketData);
