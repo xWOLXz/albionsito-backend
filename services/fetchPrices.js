@@ -51,10 +51,15 @@ async function getPrices(itemId) {
       }
     });
 
-    // Ordenar precios y tomar top 10 por tipo y ciudad
+    // Ordenar y limitar a top 10 por tipo y ciudad
     for (const ciudad in resultado) {
-      resultado[ciudad].venta.sort((a, b) => a.precio - b.precio).slice(0, 10);
-      resultado[ciudad].compra.sort((a, b) => b.precio - a.precio).slice(0, 10);
+      resultado[ciudad].venta = resultado[ciudad].venta
+        .sort((a, b) => a.precio - b.precio)
+        .slice(0, 10);
+
+      resultado[ciudad].compra = resultado[ciudad].compra
+        .sort((a, b) => b.precio - a.precio)
+        .slice(0, 10);
     }
 
     return {
