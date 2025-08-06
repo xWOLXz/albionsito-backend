@@ -15,23 +15,25 @@ const fetchMarketData = async () => {
     const qualities = [1]; // Calidad normal
     const itemsUrl = 'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json';
 
-    console.log(`[Backend1] Obteniendo items...`);
+    console.log(`[Backend1] ⏳ Obteniendo items...`);
     const itemsResponse = await fetch(itemsUrl);
     const items = await itemsResponse.json();
 
-    console.log(`[Backend1] Total items obtenidos: ${items.length}`);
+    console.log(`[Backend1] 🧩 Total items obtenidos del JSON: ${items.length}`);
 
     const filteredItems = items.filter(
       item => item.tradeable && item.uniquename && !item.uniquename.includes('TEST')
     );
 
-    const itemIds = filteredItems.map(item => item.uniquename).slice(0, 500); // Puedes aumentar este número
-    console.log(`[Backend1] Items filtrados y válidos: ${itemIds.length}`);
+    const itemIds = filteredItems.map(item => item.uniquename).slice(0, 500);
+    console.log(`[Backend1] ✅ Items filtrados para consultar precios: ${itemIds.length}`);
 
     const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemIds.join(',')}?locations=${cities.join(',')}&qualities=${qualities.join(',')}`;
-    console.log(`[Backend1] Consultando precios en la API externa...`);
+    console.log(`[Backend1] 🌐 Llamando a la API externa de precios...`);
     const response = await fetch(url);
     const data = await response.json();
+
+    console.log(`[Backend1] 📦 Datos recibidos de la API de precios: ${data.length}`);
 
     const finalData = [];
 
@@ -40,6 +42,8 @@ const fetchMarketData = async () => {
       acc[item.item_id].push(item);
       return acc;
     }, {});
+
+    let procesados = 0;
 
     for (const [itemId, entries] of Object.entries(grouped)) {
       const sellOrders = entries.filter(e => e.sell_price_min > 0);
@@ -60,26 +64,27 @@ const fetchMarketData = async () => {
         buy_city: highestBuy.city,
         profit
       });
+
+      procesados++;
     }
 
     marketData = finalData;
-    console.log(`[Backend1] ✅ Datos actualizados. Total ítems con datos: ${finalData.length}`);
+    console.log(`[Backend1] ✅ Finalizado. Ítems con datos válidos: ${procesados}`);
   } catch (error) {
-    console.error('[Backend1] ❌ Error al actualizar datos del mercado:', error);
+    console.error('[Backend1] ❌ Error en fetchMarketData:', error);
   }
 };
 
-// Ejecutar al inicio y luego cada 10 minutos
+// Ejecutar al inicio y cada 10 min
 fetchMarketData();
 setInterval(fetchMarketData, 10 * 60 * 1000);
 
-// Endpoint principal
+// Endpoint API
 app.get('/items', (req, res) => {
-  console.log(`[Backend1] 🔄 Petición recibida en /items`);
+  console.log(`[Backend1] 📤 Petición a /items. Total: ${marketData.length}`);
   res.json(marketData);
 });
 
-// Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Backend1 corriendo en http://localhost:${PORT}`);
 });
