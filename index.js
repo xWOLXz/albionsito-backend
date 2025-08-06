@@ -1,94 +1,104 @@
 const express = require('express');
 const fetch = require('node-fetch');
 const cors = require('cors');
-
 const app = express();
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
 let marketData = [];
 
 const fetchMarketData = async () => {
+  console.log('[Backend1] ⏳ Obteniendo items...');
   try {
-    const cities = ['Bridgewatch', 'Martlock', 'Thetford', 'Fort Sterling', 'Lymhurst', 'Caerleon'];
-    const qualities = [1];
-    const itemsUrl = 'https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json';
+    const res = await fetch('https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/items.json');
+    const data = await res.json();
 
-    console.log(`[Backend1] ⏳ Obteniendo items...`);
-    const itemsResponse = await fetch(itemsUrl);
-    const items = await itemsResponse.json();
+    const items = Object.values(data).filter(item => {
+      const name = item.localizedNames?.['ES-ES'] || item.localizedNames?.['EN-US'];
+      return (
+        name &&
+        !item.uniquename.includes('SKINS') &&
+        !item.uniquename.includes('QUESTITEM') &&
+        !item.uniquename.includes('TOKEN') &&
+        !item.uniquename.includes('SILVER') &&
+        !item.uniquename.includes('AVATAR') &&
+        !item.uniquename.includes('TROPHY_FURNITURE') &&
+        !item.uniquename.includes('FISH') &&
+        !item.uniquename.includes('FIBER') &&
+        !item.uniquename.includes('LOG') &&
+        !item.uniquename.includes('ORE') &&
+        !item.uniquename.includes('HIDE') &&
+        !item.uniquename.includes('STONE') &&
+        !item.uniquename.includes('ESSENCE') &&
+        !item.uniquename.includes('JOURNAL') &&
+        !item.uniquename.includes('FURNITUREITEM') &&
+        !item.uniquename.includes('CAPEITEM_FW') &&
+        !item.uniquename.includes('LABORER')
+      );
+    });
 
-    if (!Array.isArray(items)) {
-      console.error('[Backend1] ❌ El JSON de items no es un array:', items);
-      return;
+    console.log(`[Backend1] ✅ Total items filtrados: ${items.length}`);
+    const preview = items.slice(0, 10).map(item => ({
+      name: item.localizedNames?.['ES-ES'] || item.localizedNames?.['EN-US'] || 'SinNombre',
+      id: item.uniquename
+    }));
+    console.log('[Backend1] 🔍 Ejemplo de items cargados:', preview);
+
+    // Limitar a primeros 100 para evitar bloqueos en Render
+    const itemsLimit = items.slice(0, 100);
+
+    const cityList = ['Bridgewatch', 'Martlock', 'Lymhurst', 'Thetford', 'Fort Sterling'];
+    const requests = [];
+
+    for (const item of itemsLimit) {
+      for (const city of cityList) {
+        const url = `https://west.albion-online-data.com/api/v2/stats/prices/${item.uniquename}.json?locations=${city}`;
+        requests.push(fetch(url).then(res => res.json()));
+      }
     }
 
-    console.log(`[Backend1] 🧩 Total items obtenidos del JSON: ${items.length}`);
+    const results = await Promise.all(requests);
+    const flatResults = results.flat();
 
-    const filteredItems = items.filter(
-      item => item.tradeable && item.uniquename && !item.uniquename.includes('TEST')
-    );
+    marketData = [];
 
-    const itemIds = filteredItems.map(item => item.uniquename).slice(0, 500);
-    console.log(`[Backend1] ✅ Items filtrados para consultar precios: ${itemIds.length}`);
+    for (const item of itemsLimit) {
+      const prices = flatResults.filter(i => i.item_id === item.uniquename && i.sell_price_min > 0 && i.buy_price_max > 0);
+      if (prices.length === 0) continue;
 
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemIds.join(',')}?locations=${cities.join(',')}&qualities=${qualities.join(',')}`;
-    console.log(`[Backend1] 🌐 Llamando a la API externa de precios...`);
-    const response = await fetch(url);
-    const data = await response.json();
+      const bestSell = prices.reduce((min, p) => (p.sell_price_min < min.sell_price_min ? p : min));
+      const bestBuy = prices.reduce((max, p) => (p.buy_price_max > max.buy_price_max ? p : max));
 
-    console.log(`[Backend1] 📦 Datos recibidos de la API de precios: ${data.length}`);
+      const margin = bestSell.sell_price_min - bestBuy.buy_price_max;
 
-    const finalData = [];
+      const nameES = item.localizedNames?.['ES-ES'] || item.localizedNames?.['EN-US'] || 'SinNombre';
 
-    const grouped = data.reduce((acc, item) => {
-      if (!acc[item.item_id]) acc[item.item_id] = [];
-      acc[item.item_id].push(item);
-      return acc;
-    }, {});
-
-    let procesados = 0;
-
-    for (const [itemId, entries] of Object.entries(grouped)) {
-      const sellOrders = entries.filter(e => e.sell_price_min > 0);
-      const buyOrders = entries.filter(e => e.buy_price_max > 0);
-
-      if (sellOrders.length === 0 || buyOrders.length === 0) continue;
-
-      const lowestSell = sellOrders.reduce((min, e) => e.sell_price_min < min.sell_price_min ? e : min, sellOrders[0]);
-      const highestBuy = buyOrders.reduce((max, e) => e.buy_price_max > max.buy_price_max ? e : max, buyOrders[0]);
-
-      const profit = lowestSell.sell_price_min - highestBuy.buy_price_max;
-
-      finalData.push({
-        item_id: itemId,
-        lowest_sell_price: lowestSell.sell_price_min,
-        sell_city: lowestSell.city,
-        highest_buy_price: highestBuy.buy_price_max,
-        buy_city: highestBuy.city,
-        profit
+      marketData.push({
+        name: nameES,
+        id: item.uniquename,
+        sell_price: bestSell.sell_price_min,
+        sell_city: bestSell.city,
+        buy_price: bestBuy.buy_price_max,
+        buy_city: bestBuy.city,
+        margin
       });
-
-      procesados++;
     }
 
-    marketData = finalData;
-    console.log(`[Backend1] ✅ Finalizado. Ítems con datos válidos: ${procesados}`);
+    console.log(`[Backend1] ✅ Datos del market generados: ${marketData.length} ítems con info válida`);
+
   } catch (error) {
     console.error('[Backend1] ❌ Error en fetchMarketData:', error);
   }
 };
 
-// Ejecutar y actualizar cada 10 min
-fetchMarketData();
-setInterval(fetchMarketData, 10 * 60 * 1000);
-
 app.get('/items', (req, res) => {
-  console.log(`[Backend1] 📤 Petición a /items. Total: ${marketData.length}`);
+  console.log('[Backend1] 📦 Respuesta enviada con', marketData.length, 'ítems');
   res.json(marketData);
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Backend1 corriendo en http://localhost:${PORT}`);
+  fetchMarketData();
+  setInterval(fetchMarketData, 1000 * 60 * 10); // cada 10 minutos
 });
