@@ -1,7 +1,7 @@
 // src/services/fetchPrices.js
 const axios = require("axios");
 
-function esReciente(fechaISO, minutos = 15) {
+function esReciente(fechaISO, minutos = 5) {
   const fecha = new Date(fechaISO);
   const ahora = new Date();
   const diferencia = (ahora - fecha) / 60000; // minutos
