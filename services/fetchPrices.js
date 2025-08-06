@@ -1,15 +1,8 @@
-// src/services/fetchPrices.js
+// services/fetchPrices.js
 const axios = require("axios");
 
-function esReciente(fechaISO, minutos = 5) {
-  const fecha = new Date(fechaISO);
-  const ahora = new Date();
-  const diferencia = (ahora - fecha) / 60000; // minutos
-  return diferencia <= minutos;
-}
-
 async function getPrices(itemId) {
-  const url = `https://west.albion-online-data.com/api/v2/stats/prices/${itemId}.json?locations=Caerleon,Bridgewatch,Lymhurst,Martlock,Thetford,Fort Sterling,Brecilien`;
+  const url = `https://api.albiondb.net/v1/stats/${itemId}?locations=Caerleon,Bridgewatch,Lymhurst,Martlock,Thetford,Fort Sterling,Brecilien`;
 
   try {
     const response = await axios.get(url);
@@ -19,32 +12,26 @@ async function getPrices(itemId) {
 
     data.forEach(entry => {
       const {
-        city = entry.location,
+        location,
         sell_price_min,
         sell_price_min_date,
         buy_price_max,
         buy_price_max_date
       } = entry;
 
-      if (!resultado[city]) {
-        resultado[city] = { venta: [], compra: [] };
+      if (!resultado[location]) {
+        resultado[location] = { venta: [], compra: [] };
       }
 
-      if (
-        sell_price_min > 0 &&
-        esReciente(sell_price_min_date)
-      ) {
-        resultado[city].venta.push({
+      if (sell_price_min > 0 && sell_price_min_date) {
+        resultado[location].venta.push({
           precio: sell_price_min,
           fecha: sell_price_min_date
         });
       }
 
-      if (
-        buy_price_max > 0 &&
-        esReciente(buy_price_max_date)
-      ) {
-        resultado[city].compra.push({
+      if (buy_price_max > 0 && buy_price_max_date) {
+        resultado[location].compra.push({
           precio: buy_price_max,
           fecha: buy_price_max_date
         });
@@ -68,7 +55,7 @@ async function getPrices(itemId) {
       precios: resultado
     };
   } catch (error) {
-    console.error("❌ Error al obtener precios:", error.message);
+    console.error("❌ Error al obtener precios desde albiondb:", error.message);
     return {
       itemId,
       actualizado: new Date().toISOString(),
