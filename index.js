@@ -1,54 +1,38 @@
-// 📁 backend1/index.js
-const express = require('express');
-const axios = require('axios');
-const cors = require('cors');
-
+const express = require("express");
+const cors = require("cors");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
-let cachedPrices = [];
-let lastUpdated = null;
-
-const ITEMS = [
-  'T4_BAG','T5_BAG','T6_BAG','T7_BAG','T8_BAG',
-  'T4_CAPE','T5_CAPE','T6_CAPE','T7_CAPE','T8_CAPE'
-];
-const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst', 'Caerleon'];
-const QUALITIES = [1];
-
-const fetchAlbionData = async () => {
+app.get("/api/prices", async (req, res) => {
   try {
-    console.log('📡 Robando datos de la API AlbionData West...');
+    const { items, locations, qualities } = req.query;
 
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${ITEMS.join(',')}?locations=${LOCATIONS.join(',')}&qualities=${QUALITIES.join(',')}`;
-    const response = await axios.get(url);
+    if (!items || !locations || !qualities) {
+      return res.status(400).json({ error: "Faltan parámetros: items, locations, qualities" });
+    }
 
-    cachedPrices = response.data;
-    lastUpdated = new Date();
+    console.log("[INFO] Solicitando precios a la API externa...");
+    console.log("[INFO] Items:", items);
+    console.log("[INFO] Ciudades:", locations);
+    console.log("[INFO] Calidades:", qualities);
 
-    console.log(`✅ Datos actualizados correctamente. Última actualización: ${lastUpdated.toISOString()}`);
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${items}?locations=${locations}&qualities=${qualities}`;
+    console.log("[URL]", url);
+
+    const response = await fetch(url);
+    const data = await response.json();
+
+    console.log(`[OK] Datos recibidos (${data.length} resultados)`);
+
+    res.json(data);
   } catch (error) {
-    console.error('❌ Error al obtener datos de AlbionData West:', error.message);
+    console.error("[ERROR] No se pudo obtener la información de la API externa:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
-};
-
-// Ejecutar la función al iniciar
-fetchAlbionData();
-
-// Repetir cada 10 minutos
-setInterval(fetchAlbionData, 10 * 60 * 1000);
-
-// Endpoint para consultar precios
-app.get('/api/prices', (req, res) => {
-  res.json({
-    source: 'AlbionData West',
-    lastUpdated,
-    items: cachedPrices
-  });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend 1 corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Backend funcionando en http://localhost:${PORT}`);
 });
