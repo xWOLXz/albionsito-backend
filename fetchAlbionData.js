@@ -6,8 +6,10 @@ const { log } = require('./utils/logger');
 const ITEMS_PATH = path.join(__dirname, 'data', 'items.json');
 const OUTPUT_PATH = path.join(__dirname, 'data', 'prices.json');
 
-const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst'];
+const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst']; // solo ciudades del servidor AMÉRICA
 const QUALITIES = [1];
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 async function fetchAlbionData() {
   try {
@@ -19,6 +21,8 @@ async function fetchAlbionData() {
       log(`Consultando API Albion Data: ${item}`);
       const response = await axios.get(url);
       allData.push(...response.data);
+
+      await delay(300); // Delay para evitar bloqueos
     }
 
     fs.writeFileSync(OUTPUT_PATH, JSON.stringify(allData, null, 2));
