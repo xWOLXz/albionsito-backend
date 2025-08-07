@@ -1,14 +1,15 @@
 {
   "name": "albionsito-backend",
   "version": "1.0.0",
-  "description": "Backend para Albionsito usando Albion Data y Albion 2D",
+  "description": "Backend 1 para obtener precios desde Albion Data Project - Servidor América",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
+    "axios": "^1.6.8",
     "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3"
   }
 }
