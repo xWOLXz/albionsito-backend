@@ -1,43 +1,54 @@
-const express = require("express");
-const cors = require("cors");
-const fetch = require("node-fetch");
+// 📁 backend1/index.js
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
-app.get("/api/prices", async (req, res) => {
+let cachedPrices = [];
+let lastUpdated = null;
+
+const ITEMS = [
+  'T4_BAG','T5_BAG','T6_BAG','T7_BAG','T8_BAG',
+  'T4_CAPE','T5_CAPE','T6_CAPE','T7_CAPE','T8_CAPE'
+];
+const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst', 'Caerleon'];
+const QUALITIES = [1];
+
+const fetchAlbionData = async () => {
   try {
-    const items = req.query.items;
-    const locations = req.query.locations;
-    const qualities = req.query.qualities || "1";
+    console.log('📡 Robando datos de la API AlbionData West...');
 
-    if (!items || !locations) {
-      return res.status(400).json({ error: "Parámetros 'items' y 'locations' son requeridos." });
-    }
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${ITEMS.join(',')}?locations=${LOCATIONS.join(',')}&qualities=${QUALITIES.join(',')}`;
+    const response = await axios.get(url);
 
-    const encodedItems = encodeURIComponent(items);
-    const encodedLocations = encodeURIComponent(locations);
+    cachedPrices = response.data;
+    lastUpdated = new Date();
 
-    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${encodedItems}?locations=${encodedLocations}&qualities=${qualities}`;
-
-    console.log("⏳ Solicitando datos a la API Albion...");
-    console.log("🧩 Ítems: ", items);
-    console.log("🌍 Ciudades: ", locations);
-    console.log("📦 URL construida: ", url);
-
-    const response = await fetch(url);
-    const data = await response.json();
-
-    console.log(`✅ Respuesta recibida de la API con ${data.length} registros`);
-    res.json(data);
+    console.log(`✅ Datos actualizados correctamente. Última actualización: ${lastUpdated.toISOString()}`);
   } catch (error) {
-    console.error("❌ Error al obtener los precios:", error);
-    res.status(500).json({ error: "Error al obtener los precios desde la API de Albion" });
+    console.error('❌ Error al obtener datos de AlbionData West:', error.message);
   }
+};
+
+// Ejecutar la función al iniciar
+fetchAlbionData();
+
+// Repetir cada 10 minutos
+setInterval(fetchAlbionData, 10 * 60 * 1000);
+
+// Endpoint para consultar precios
+app.get('/api/prices', (req, res) => {
+  res.json({
+    source: 'AlbionData West',
+    lastUpdated,
+    items: cachedPrices
+  });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Backend Albionsito corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Backend 1 corriendo en http://localhost:${PORT}`);
 });
