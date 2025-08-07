@@ -1,14 +1,14 @@
 {
   "name": "albionsito-backend",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "commonjs",
+  "description": "Backend para Albionsito usando Albion Data y Albion 2D",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "axios": "^1.6.0",
     "cors": "^2.8.5",
-    "node-fetch": "^2.6.9"
+    "express": "^4.18.2"
   }
 }
