@@ -1,10 +1,14 @@
 {
   "name": "albionsito-backend",
   "version": "1.0.0",
+  "description": "Backend del proyecto Albionsito usando Albion Data Project",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
     "axios": "^1.6.7",
     "cors": "^2.8.5",
