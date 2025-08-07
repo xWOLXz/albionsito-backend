@@ -1,37 +1,38 @@
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const fs = require('fs');
-const log = require('./utils/logger');
-const fetchAlbionData = require('./fetchAlbionData');
-const fetchAlbion2D = require('./fetchAlbion2D');
+const path = require('path');
+const cron = require('node-cron');
+const { fetchAlbionData } = require('./fetchAlbionData');
+const { log } = require('./utils/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
-// Rutas API
-app.get('/api/prices', (req, res) => {
-  const data = fs.readFileSync(path.join(__dirname, 'data', 'prices-albiondata.json'), 'utf8');
-  res.json(JSON.parse(data));
+const PRICES_PATH = path.join(__dirname, 'data', 'prices.json');
+
+// Endpoint para obtener los datos
+app.get('/api/data', (req, res) => {
+  try {
+    const data = JSON.parse(fs.readFileSync(PRICES_PATH, 'utf8'));
+    res.json(data);
+  } catch (error) {
+    log(`❌ Error al leer los datos: ${error.message}`);
+    res.status(500).json({ error: 'Error al leer los datos' });
+  }
 });
 
-app.get('/api2/prices', (req, res) => {
-  const data = fs.readFileSync(path.join(__dirname, 'data', 'prices-albion2d.json'), 'utf8');
-  res.json(JSON.parse(data));
+// Ejecutar una vez al inicio
+fetchAlbionData();
+
+// Ejecutar cada 10 minutos
+cron.schedule('*/10 * * * *', () => {
+  log('🔁 Ejecutando actualización programada de precios...');
+  fetchAlbionData();
 });
-
-// Ejecutar robos al iniciar y luego cada 10 minutos
-async function startFetching() {
-  await fetchAlbionData();
-  await fetchAlbion2D();
-
-  setInterval(fetchAlbionData, 10 * 60 * 1000);
-  setInterval(fetchAlbion2D, 10 * 60 * 1000);
-}
 
 app.listen(PORT, () => {
-  log(`✅ Backend corriendo en http://localhost:${PORT}`);
-  startFetching();
+  log(`🚀 Servidor backend AlbionData escuchando en el puerto ${PORT}`);
 });
