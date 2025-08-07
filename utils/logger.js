@@ -1,6 +1,3 @@
-const log = (message) => {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] ${message}`);
+module.exports.log = function(...args) {
+  console.log.apply(console, args);
 };
-
-module.exports = { log };
