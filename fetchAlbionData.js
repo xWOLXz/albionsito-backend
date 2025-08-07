@@ -6,7 +6,7 @@ const { log } = require('./utils/logger');
 const ITEMS_PATH = path.join(__dirname, 'data', 'items.json');
 const OUTPUT_PATH = path.join(__dirname, 'data', 'prices.json');
 
-const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst', 'Caerleon'];
+const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst'];
 const QUALITIES = [1];
 
 async function fetchAlbionData() {
