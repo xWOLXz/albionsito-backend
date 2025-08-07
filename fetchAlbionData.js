@@ -3,33 +3,32 @@ const fs = require('fs');
 const path = require('path');
 const { log } = require('./utils/logger');
 
-const ITEMS_PATH = path.join(__dirname, 'data', 'items.json');
-const OUTPUT_PATH = path.join(__dirname, 'data', 'prices.json');
+const OUTPUT = path.join(__dirname, 'data', 'prices.json');
 
-const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst']; // solo ciudades del servidor AMÉRICA
-const QUALITIES = [1];
+const LOCATIONS = ['Caerleon','Bridgewatch','Lymhurst','Martlock','Thetford','Fort Sterling','Brecilien'];
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-async function fetchAlbionData() {
+async function fetchPricesForItem(itemId, quality = 1) {
   try {
-    const items = JSON.parse(fs.readFileSync(ITEMS_PATH, 'utf8'));
-    const allData = [];
-
-    for (const item of items) {
-      const url = `https://west.albion-online-data.com/api/v2/stats/prices/${item}.json?locations=${LOCATIONS.join(',')}&qualities=${QUALITIES.join(',')}`;
-      log(`Consultando API Albion Data: ${item}`);
-      const response = await axios.get(url);
-      allData.push(...response.data);
-
-      await delay(300); // Delay para evitar bloqueos
-    }
-
-    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(allData, null, 2));
-    log(`✅ Precios actualizados correctamente: ${allData.length} registros`);
-  } catch (error) {
-    log(`❌ Error al consultar la API de Albion Data: ${error.message}`);
+    const url = `https://west.albion-online-data.com/api/v2/stats/prices/${encodeURIComponent(itemId)}.json?locations=${LOCATIONS.join(',')}&qualities=${quality}`;
+    log(`[Backend1] GET ${url}`);
+    const r = await axios.get(url);
+    return r.data;
+  } catch (err) {
+    log(`[Backend1] Error fetchPricesForItem ${itemId}:`, err.message || err);
+    return [];
   }
 }
 
-module.exports = { fetchAlbionData };
+async function fetchAlbionData() {
+  try {
+    log('[Backend1] Actualizando cache de precios (Albion Data) - inicio');
+    // Puedes decidir precargar una lista de items o esperar a las peticiones del frontend.
+    // Aquí sólo crea/actualiza un archivo vacío (se llenará a petición).
+    fs.writeFileSync(OUTPUT, JSON.stringify({updated: new Date().toISOString(), items:{}} , null, 2));
+    log('[Backend1] Cache inicializada.');
+  } catch (err) {
+    log('[Backend1] Error fetchAlbionData:', err);
+  }
+}
+
+module.exports = { fetchAlbionData, fetchPricesForItem, OUTPUT };
