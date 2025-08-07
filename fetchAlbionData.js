@@ -1,24 +1,31 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
-const log = require('./utils/logger');
-const ITEMS = require('./data/items.json');
+const { log } = require('./utils/logger');
+
+const ITEMS_PATH = path.join(__dirname, 'data', 'items.json');
+const OUTPUT_PATH = path.join(__dirname, 'data', 'prices.json');
+
 const LOCATIONS = ['Bridgewatch', 'Martlock', 'Fort Sterling', 'Thetford', 'Lymhurst', 'Caerleon'];
 const QUALITIES = [1];
 
 async function fetchAlbionData() {
-  log('Robando datos desde Albion Data API...');
-
-  const url = `https://west.albion-online-data.com/api/v2/stats/prices/${ITEMS.join(',')}?locations=${LOCATIONS.join(',')}&qualities=${QUALITIES.join(',')}`;
-
   try {
-    const res = await axios.get(url);
-    const data = res.data;
-    fs.writeFileSync(path.join(__dirname, 'data', 'prices-albiondata.json'), JSON.stringify(data, null, 2));
-    log(`Datos guardados: ${data.length} registros.`);
+    const items = JSON.parse(fs.readFileSync(ITEMS_PATH, 'utf8'));
+    const allData = [];
+
+    for (const item of items) {
+      const url = `https://west.albion-online-data.com/api/v2/stats/prices/${item}.json?locations=${LOCATIONS.join(',')}&qualities=${QUALITIES.join(',')}`;
+      log(`Consultando API Albion Data: ${item}`);
+      const response = await axios.get(url);
+      allData.push(...response.data);
+    }
+
+    fs.writeFileSync(OUTPUT_PATH, JSON.stringify(allData, null, 2));
+    log(`✅ Precios actualizados correctamente: ${allData.length} registros`);
   } catch (error) {
-    log('Error robando datos de Albion Data API:', error.message);
+    log(`❌ Error al consultar la API de Albion Data: ${error.message}`);
   }
 }
 
-module.exports = fetchAlbionData;
+module.exports = { fetchAlbionData };
