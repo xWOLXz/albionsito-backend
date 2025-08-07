@@ -1,17 +1,14 @@
 {
-  "name": "albionsito-backend1",
+  "name": "albionsito-backend",
   "version": "1.0.0",
-  "description": "Backend que consulta los ítems automáticamente desde la API de Albion",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
-    "node-fetch": "^2.6.7",
-    "cors": "^2.8.5"
+    "cors": "^2.8.5",
+    "node-fetch": "^2.6.9"
   }
 }
