@@ -4,8 +4,7 @@ const path = require('path');
 const { log } = require('./utils/logger');
 
 const OUTPUT = path.join(__dirname, 'data', 'prices.json');
-
-const LOCATIONS = ['Caerleon','Bridgewatch','Lymhurst','Martlock','Thetford','Fort Sterling','Brecilien'];
+const LOCATIONS = ['Caerleon', 'Bridgewatch', 'Lymhurst', 'Martlock', 'Thetford', 'Fort Sterling', 'Brecilien'];
 
 async function fetchPricesForItem(itemId, quality = 1) {
   try {
@@ -22,9 +21,7 @@ async function fetchPricesForItem(itemId, quality = 1) {
 async function fetchAlbionData() {
   try {
     log('[Backend1] Actualizando cache de precios (Albion Data) - inicio');
-    // Puedes decidir precargar una lista de items o esperar a las peticiones del frontend.
-    // Aquí sólo crea/actualiza un archivo vacío (se llenará a petición).
-    fs.writeFileSync(OUTPUT, JSON.stringify({updated: new Date().toISOString(), items:{}} , null, 2));
+    fs.writeFileSync(OUTPUT, JSON.stringify({ updated: new Date().toISOString(), items: {} }, null, 2));
     log('[Backend1] Cache inicializada.');
   } catch (err) {
     log('[Backend1] Error fetchAlbionData:', err);
