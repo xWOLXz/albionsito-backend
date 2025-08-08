@@ -11,11 +11,6 @@ const PORT = process.env.PORT || 10000;
 
 app.use(cors());
 
-/**
- * /api/init -> inicializa cache
- * /api/prices?itemId=...&quality=1 -> devuelve estructura con top ventas/compras por ciudad
- */
-
 app.get('/api/init', async (req, res) => {
   try {
     await fetchAlbionData();
@@ -33,41 +28,65 @@ app.get('/api/prices', async (req, res) => {
 
   try {
     const data = await fetchPricesForItem(itemId, quality);
-    // data es array con objetos por ciudad
+
+    // Normalizar a formato Backend2
     const result = {};
     data.forEach(entry => {
       const city = entry.city || entry.location;
-      if (!result[city]) result[city] = { orden_venta: [], orden_compra: [], actualizado: new Date().toISOString() };
+      if (!result[city]) {
+        result[city] = { sell: [], buy: [], updated: null };
+      }
       if (entry.sell_price_min && entry.sell_price_min > 0) {
-        result[city].orden_venta.push({ precio: entry.sell_price_min, fecha: entry.sell_price_min_date || new Date().toISOString() });
+        result[city].sell.push({
+          price: entry.sell_price_min,
+          date: entry.sell_price_min_date || new Date().toISOString()
+        });
       }
       if (entry.buy_price_max && entry.buy_price_max > 0) {
-        result[city].orden_compra.push({ precio: entry.buy_price_max, fecha: entry.buy_price_max_date || new Date().toISOString() });
+        result[city].buy.push({
+          price: entry.buy_price_max,
+          date: entry.buy_price_max_date || new Date().toISOString()
+        });
+      }
+      const dateCandidates = [
+        entry.sell_price_min_date,
+        entry.buy_price_max_date
+      ].filter(Boolean);
+      for (const d of dateCandidates) {
+        if (!result[city].updated || new Date(d) > new Date(result[city].updated)) {
+          result[city].updated = d;
+        }
       }
     });
 
-    // ordenar y limitar top 10
+    // Ordenar por fecha y limitar a últimos 5
     Object.keys(result).forEach(city => {
-      result[city].orden_venta = result[city].orden_venta.sort((a,b)=>a.precio-b.precio).slice(0,10);
-      result[city].orden_compra = result[city].orden_compra.sort((a,b)=>b.precio-a.precio).slice(0,10);
+      result[city].sell = result[city].sell
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5);
+
+      result[city].buy = result[city].buy
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, 5);
     });
 
-    // save small cache (no necesario, pero para inspección)
+    // Guardar en cache
     try {
       const cache = JSON.parse(fs.readFileSync(OUTPUT, 'utf8') || '{}');
       cache.items = cache.items || {};
       cache.items[itemId] = { updated: new Date().toISOString(), data: result };
       fs.writeFileSync(OUTPUT, JSON.stringify(cache, null, 2));
-    } catch(e){ log('[Backend1] warning writing cache', e.message); }
+    } catch (e) {
+      log('[Backend1] warning writing cache', e.message);
+    }
 
-    res.json({ item: itemId, precios: result });
+    res.json({ item: itemId, prices: result });
   } catch (err) {
     log('[Backend1] error /api/prices', err);
     res.status(500).json({ error: 'Error interno backend1' });
   }
 });
 
-// Ejecutamos fetchAlbionData al iniciar y programamos cron cada 10 minutos (puedes bajar a 5)
 fetchAlbionData();
 cron.schedule('*/10 * * * *', () => {
   log('[Backend1] Cron: actualizando cache AlbionData every 10m');
@@ -75,5 +94,5 @@ cron.schedule('*/10 * * * *', () => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor albionsito-backend escuchando en http://localhost:${PORT} / port ${PORT}`);
+  console.log(`🚀 Servidor albionsito-backend escuchando en http://localhost:${PORT}`);
 });
