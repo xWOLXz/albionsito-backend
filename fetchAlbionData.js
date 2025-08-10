@@ -1,68 +1,64 @@
-const axios = require("axios");
+// albionsito-backend/fetchAlbionData.js
 
-// Lista de ciudades que queremos consultar
-const cities = [
-  "Bridgewatch",
-  "Martlock",
-  "Fort Sterling",
-  "Lymhurst",
-  "Thetford",
-  "Caerleon",
-  "Brecilien"
-];
+import fetch from "node-fetch";
 
-/**
- * Función para obtener los últimos 5 precios de compra y venta por ciudad.
- * @param {string} itemId - ID del ítem (ejemplo: T4_BAG)
- * @returns {Promise<Array>} Lista de resultados por ciudad
- */
-async function fetchAlbionData(itemId) {
+// Función principal para obtener precios del mercado
+export async function fetchAlbionData(itemIds, locations) {
   try {
-    // Construir la URL de la API
-    const apiUrl = `https://west.albion-online-data.com/api/v2/stats/history/${itemId}?locations=${cities.join(",")}&time-scale=1`;
+    const baseUrl = "https://west.albion-online-data.com/api/v2/stats/history";
+    const results = [];
 
-    const { data } = await axios.get(apiUrl);
+    for (const itemId of itemIds) {
+      const itemData = { itemId, cities: {} };
 
-    // Agrupar por ciudad
-    const groupedByCity = {};
+      for (const location of locations) {
+        const url = `${baseUrl}/${itemId}?locations=${location}&time-scale=1`;
 
-    data.forEach(entry => {
-      const city = entry.location;
-      if (!groupedByCity[city]) {
-        groupedByCity[city] = { sell: [], buy: [] };
+        const response = await fetch(url);
+        if (!response.ok) {
+          console.error(`Error al obtener datos para ${itemId} en ${location}`);
+          continue;
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data) || data.length === 0) {
+          console.warn(`Sin datos para ${itemId} en ${location}`);
+          continue;
+        }
+
+        // Ordenar por fecha descendente
+        const sorted = data.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        // Últimos 5 registros de venta y compra
+        const last5Sell = sorted
+          .filter(d => d.sell_price_min > 0)
+          .slice(0, 5)
+          .map(d => ({
+            price: d.sell_price_min,
+            date: d.timestamp
+          }));
+
+        const last5Buy = sorted
+          .filter(d => d.buy_price_max > 0)
+          .slice(0, 5)
+          .map(d => ({
+            price: d.buy_price_max,
+            date: d.timestamp
+          }));
+
+        itemData.cities[location] = {
+          sellPrices: last5Sell,
+          buyPrices: last5Buy
+        };
       }
 
-      // Guardar precios (si existen)
-      if (entry.sell_price_min > 0) {
-        groupedByCity[city].sell.push({
-          price: entry.sell_price_min,
-          timestamp: entry.timestamp
-        });
-      }
-      if (entry.buy_price_max > 0) {
-        groupedByCity[city].buy.push({
-          price: entry.buy_price_max,
-          timestamp: entry.timestamp
-        });
-      }
-    });
+      results.push(itemData);
+    }
 
-    // Tomar solo los últimos 5 por cada ciudad
-    const result = Object.entries(groupedByCity).map(([city, prices]) => ({
-      city,
-      last5Sell: prices.sell
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 5),
-      last5Buy: prices.buy
-        .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 5)
-    }));
-
-    return result;
+    return results;
   } catch (error) {
-    console.error("Error al obtener datos de Albion API:", error.message);
+    console.error("Error en fetchAlbionData:", error);
     return [];
   }
 }
-
-module.exports = fetchAlbionData;
