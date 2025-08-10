@@ -24,7 +24,7 @@ res.status(500).json({ error: 'init failed' });
 app.get('/api/prices', async (req, res) => {
 const { itemId, quality = 1 } = req.query;
 if (!itemId) return res.status(400).json({ error: 'itemId required' });
-log([Backend1] peticion /api/prices item=${itemId} quality=${quality});
+log('[Backend1] peticion /api/prices item=${itemId} quality=${quality}');
 
 try {
 const data = await fetchPricesForItem(itemId, quality);
