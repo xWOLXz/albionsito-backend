@@ -95,5 +95,5 @@ fetchAlbionData();
 });
 
 app.listen(PORT, () => {
-console.log(🚀 Servidor albionsito-backend escuchando en http://localhost:${PORT});
+console.log('🚀 Servidor albionsito-backend escuchando en http://localhost:${PORT}');
 });
