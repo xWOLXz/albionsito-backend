@@ -7,7 +7,7 @@ const cron = require('node-cron');
 const { log } = require('./utils/logger');
 
 const app = express();
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 
