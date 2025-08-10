@@ -9,7 +9,7 @@ const LOCATIONS = ['Caerleon', 'Bridgewatch', 'Lymhurst', 'Martlock', 'Thetford'
 
 async function fetchPricesForItem(itemId, quality = 1) {
 try {
-const url = 'https://west.albion-online-data.com/api/v2/stats/prices/${encodeURIComponent(itemId)}.json?locations=${LOCATIONS.join(',')}&qualities=${quality}';
+  const url = `https://west.albion-online-data.com/api/v2/stats/prices/${encodeURIComponent(itemId)}.json?locations=${LOCATIONS.join(',')}&qualities=${quality}`;
 log([Backend1] GET ${url});
 const r = await axios.get(url);
 return r.data;
