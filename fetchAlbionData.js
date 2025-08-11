@@ -1,4 +1,3 @@
-// albionsito-backend/fetchAlbionData.js
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -28,10 +27,8 @@ async function fetchAlbionData() {
   try {
     log('[Backend1] Actualizando cache de precios (Albion Data) - inicio');
 
-    // Inicializa cache vacía
     let cache = { updated: new Date().toISOString(), items: {} };
 
-    // Si ya existe cache, intenta cargarla
     try {
       const rawCache = fs.readFileSync(OUTPUT, 'utf8');
       cache = JSON.parse(rawCache);
@@ -39,13 +36,11 @@ async function fetchAlbionData() {
       log('[Backend1] Cache no encontrada o corrupta, se crea nueva.');
     }
 
-    // Lee items base
     const items = JSON.parse(fs.readFileSync(ITEMS_FILE, 'utf8'));
 
     for (const item of items) {
       log(`[Backend1] Actualizando item: ${item.id}`);
 
-      // Evita actualizar si el item fue actualizado hace menos de 10 minutos
       const lastUpdate = cache.items[item.id]?.updated;
       if (lastUpdate) {
         const diffMinutes = (new Date() - new Date(lastUpdate)) / 1000 / 60;
@@ -58,7 +53,6 @@ async function fetchAlbionData() {
       try {
         const data = await fetchPricesForItem(item.id, 1);
 
-        // Normalizar datos al formato que usa tu app
         const result = {};
         data.forEach(entry => {
           const city = entry.city || entry.location;
@@ -85,7 +79,6 @@ async function fetchAlbionData() {
           }
         });
 
-        // Ordenar y limitar a últimos 5 precios por ciudad
         Object.keys(result).forEach(city => {
           result[city].sell = result[city].sell
             .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -96,20 +89,16 @@ async function fetchAlbionData() {
             .slice(0, 5);
         });
 
-        // Guardar resultado en cache
         cache.items[item.id] = { updated: new Date().toISOString(), data: result };
 
-        // Espera 1 segundo para no saturar la API y evitar 429
         await sleep(1000);
 
       } catch (e) {
         log(`[Backend1] Error al actualizar item ${item.id}: ${e.message || e}`);
-        // Espera más tiempo para evitar bloqueo severo si hay errores
         await sleep(3000);
       }
     }
 
-    // Guarda cache actualizada
     fs.writeFileSync(OUTPUT, JSON.stringify(cache, null, 2));
     log('[Backend1] Cache de precios actualizada correctamente.');
 
