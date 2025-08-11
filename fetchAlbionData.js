@@ -28,4 +28,51 @@ async function fetchAlbionData() {
   }
 }
 
-module.exports = { fetchAlbionData, fetchPricesForItem, OUTPUT };
+function normalizeApi(data) {
+  const result = {};
+  if (!Array.isArray(data)) return result;
+
+  data.forEach(entry => {
+    const city = entry.city || entry.location;
+    if (!city) return;
+
+    if (!result[city]) {
+      result[city] = { sell: [], buy: [], updated: null };
+    }
+
+    if (entry.sell_price_min && entry.sell_price_min > 0) {
+      result[city].sell.push({
+        price: entry.sell_price_min,
+        date: entry.sell_price_min_date || new Date().toISOString()
+      });
+    }
+
+    if (entry.buy_price_max && entry.buy_price_max > 0) {
+      result[city].buy.push({
+        price: entry.buy_price_max,
+        date: entry.buy_price_max_date || new Date().toISOString()
+      });
+    }
+
+    const dateCandidates = [entry.sell_price_min_date, entry.buy_price_max_date].filter(Boolean);
+    for (const d of dateCandidates) {
+      if (!result[city].updated || new Date(d) > new Date(result[city].updated)) {
+        result[city].updated = d;
+      }
+    }
+  });
+
+  Object.keys(result).forEach(city => {
+    result[city].sell = result[city].sell
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+
+    result[city].buy = result[city].buy
+      .sort((a, b) => new Date(b.date) - new Date(a.date))
+      .slice(0, 5);
+  });
+
+  return result;
+}
+
+module.exports = { fetchAlbionData, fetchPricesForItem, normalizeApi, OUTPUT };
