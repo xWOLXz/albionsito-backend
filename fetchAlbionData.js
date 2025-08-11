@@ -7,7 +7,6 @@ const { log } = require('./utils/logger');
 const OUTPUT = path.join(__dirname, 'data', 'prices.json');
 const LOCATIONS = ['Caerleon', 'Bridgewatch', 'Lymhurst', 'Martlock', 'Thetford', 'Fort Sterling', 'Brecilien'];
 
-// Función para normalizar y agrupar la data por ciudad, ordenando y limitando a 5 precios recientes
 function normalizeApi(apiData) {
   const result = {};
   if (!apiData || !Array.isArray(apiData)) return result;
@@ -33,7 +32,6 @@ function normalizeApi(apiData) {
     }
   }
 
-  // Ordenar y limitar a los últimos 5 precios
   for (const city of Object.keys(result)) {
     result[city].sell = result[city].sell
       .sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -53,7 +51,6 @@ async function fetchPricesForItem(itemId, quality = 1) {
     log(`[Backend1] GET ${url}`);
     const r = await axios.get(url);
 
-    // Normalizamos la data para devolver solo los últimos 5 precios de venta y compra por ciudad
     const normalized = normalizeApi(r.data);
     return normalized;
 
